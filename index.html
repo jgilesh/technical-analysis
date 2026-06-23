@@ -608,27 +608,27 @@ function TabChartBasics({ onNext }) {
         <div style={{fontSize:"0.7rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
           color:"#8a7560",marginBottom:"12px"}}>The Four Data Points</div>
         <div style={{display:"flex",gap:"20px",alignItems:"flex-start",flexWrap:"wrap"}}>
-          <svg width="170" height="160" viewBox="0 0 170 160" style={{flexShrink:0}}>
-            <line x1="36" y1="8" x2="36" y2="38" stroke={GR} strokeWidth="2.5"/>
-            <rect x="20" y="38" width="32" height="58" rx="3" fill="#f0faf5" stroke={GR} strokeWidth="2"/>
-            <line x1="36" y1="96" x2="36" y2="132" stroke={GR} strokeWidth="2.5"/>
-            <text x="14" y="148" fontSize="9" fill={GR} fontWeight="700" textAnchor="middle">Bullish</text>
-            <text x="58" y="12"  fontSize="8.5" fill="#8a7560">High</text>
-            <text x="58" y="44"  fontSize="8.5" fill={GR}>Close</text>
-            <text x="58" y="94"  fontSize="8.5" fill={GR}>Open</text>
-            <text x="58" y="136" fontSize="8.5" fill="#8a7560">Low</text>
-            <line x1="54" y1="10"  x2="58" y2="10"  stroke="#8a7560" strokeWidth="1"/>
-            <line x1="54" y1="42"  x2="58" y2="42"  stroke={GR} strokeWidth="1"/>
-            <line x1="54" y1="92"  x2="58" y2="92"  stroke={GR} strokeWidth="1"/>
-            <line x1="54" y1="132" x2="58" y2="132" stroke="#8a7560" strokeWidth="1"/>
-            <line x1="128" y1="8" x2="128" y2="34" stroke={RD} strokeWidth="2.5"/>
-            <rect x="112" y="34" width="32" height="58" rx="3" fill="#fff0ee" stroke={RD} strokeWidth="2"/>
-            <line x1="128" y1="92" x2="128" y2="132" stroke={RD} strokeWidth="2.5"/>
-            <text x="128" y="148" fontSize="9" fill={RD} fontWeight="700" textAnchor="middle">Bearish</text>
-            <text x="148" y="12"  fontSize="8.5" fill="#8a7560" textAnchor="start">High</text>
-            <text x="148" y="38"  fontSize="8.5" fill={RD} textAnchor="start">Open</text>
-            <text x="148" y="96"  fontSize="8.5" fill={RD} textAnchor="start">Close</text>
-            <text x="148" y="136" fontSize="8.5" fill="#8a7560" textAnchor="start">Low</text>
+          <svg width="178" height="160" viewBox="0 0 178 160" style={{flexShrink:0}}>
+            <line x1="44" y1="8" x2="44" y2="38" stroke={GR} strokeWidth="2.5"/>
+            <rect x="28" y="38" width="32" height="58" rx="3" fill="#f0faf5" stroke={GR} strokeWidth="2"/>
+            <line x1="44" y1="96" x2="44" y2="132" stroke={GR} strokeWidth="2.5"/>
+            <text x="44" y="148" fontSize="9" fill={GR} fontWeight="700" textAnchor="middle">Bullish</text>
+            <text x="66" y="12"  fontSize="8.5" fill="#8a7560">High</text>
+            <text x="66" y="44"  fontSize="8.5" fill={GR}>Close</text>
+            <text x="66" y="94"  fontSize="8.5" fill={GR}>Open</text>
+            <text x="66" y="136" fontSize="8.5" fill="#8a7560">Low</text>
+            <line x1="62" y1="10"  x2="66" y2="10"  stroke="#8a7560" strokeWidth="1"/>
+            <line x1="62" y1="42"  x2="66" y2="42"  stroke={GR} strokeWidth="1"/>
+            <line x1="62" y1="92"  x2="66" y2="92"  stroke={GR} strokeWidth="1"/>
+            <line x1="62" y1="132" x2="66" y2="132" stroke="#8a7560" strokeWidth="1"/>
+            <line x1="136" y1="8" x2="136" y2="34" stroke={RD} strokeWidth="2.5"/>
+            <rect x="120" y="34" width="32" height="58" rx="3" fill="#fff0ee" stroke={RD} strokeWidth="2"/>
+            <line x1="136" y1="92" x2="136" y2="132" stroke={RD} strokeWidth="2.5"/>
+            <text x="136" y="148" fontSize="9" fill={RD} fontWeight="700" textAnchor="middle">Bearish</text>
+            <text x="156" y="12"  fontSize="8.5" fill="#8a7560" textAnchor="start">High</text>
+            <text x="156" y="38"  fontSize="8.5" fill={RD} textAnchor="start">Open</text>
+            <text x="156" y="96"  fontSize="8.5" fill={RD} textAnchor="start">Close</text>
+            <text x="156" y="136" fontSize="8.5" fill="#8a7560" textAnchor="start">Low</text>
           </svg>
           <div style={{flex:1,minWidth:"160px"}}>
             {[
@@ -655,18 +655,18 @@ function TabChartBasics({ onNext }) {
         <div style={{fontSize:"0.7rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
           color:"#8a7560",marginBottom:"12px"}}>How They Form the Candle</div>
         <div style={{display:"flex",gap:"20px",alignItems:"flex-start",flexWrap:"wrap",marginBottom:"14px"}}>
-          <svg width="170" height="150" viewBox="0 0 170 150" style={{flexShrink:0}}>
-            <line x1="36" y1="10" x2="36" y2="40" stroke={GR} strokeWidth="2.5"/>
-            <rect x="20" y="40" width="32" height="56" rx="3" fill="#f0faf5" stroke={GR} strokeWidth="2"/>
-            <line x1="36" y1="96" x2="36" y2="124" stroke={GR} strokeWidth="2.5"/>
-            <text x="58" y="22"  fontSize="8" fill="#8a7560">Upper wick</text>
-            <text x="58" y="70"  fontSize="8" fill={GR} fontWeight="700">Body</text>
-            <text x="58" y="112" fontSize="8" fill="#8a7560">Lower wick</text>
-            <text x="14" y="142" fontSize="8.5" fill="#8a7560" textAnchor="middle">Normal</text>
-            <line x1="130" y1="4" x2="130" y2="58" stroke={RD} strokeWidth="2.5"/>
-            <rect x="114" y="58" width="32" height="14" rx="3" fill="#fff0ee" stroke={RD} strokeWidth="2"/>
-            <line x1="130" y1="72" x2="130" y2="132" stroke={RD} strokeWidth="2.5"/>
-            <text x="130" y="142" fontSize="8.5" fill={RD} fontWeight="700" textAnchor="middle">Long wick</text>
+          <svg width="178" height="150" viewBox="0 0 178 150" style={{flexShrink:0}}>
+            <line x1="44" y1="10" x2="44" y2="40" stroke={GR} strokeWidth="2.5"/>
+            <rect x="28" y="40" width="32" height="56" rx="3" fill="#f0faf5" stroke={GR} strokeWidth="2"/>
+            <line x1="44" y1="96" x2="44" y2="124" stroke={GR} strokeWidth="2.5"/>
+            <text x="66" y="22"  fontSize="8" fill="#8a7560">Upper wick</text>
+            <text x="66" y="70"  fontSize="8" fill={GR} fontWeight="700">Body</text>
+            <text x="66" y="112" fontSize="8" fill="#8a7560">Lower wick</text>
+            <text x="44" y="142" fontSize="8.5" fill="#8a7560" textAnchor="middle">Normal</text>
+            <line x1="138" y1="4" x2="138" y2="58" stroke={RD} strokeWidth="2.5"/>
+            <rect x="122" y="58" width="32" height="14" rx="3" fill="#fff0ee" stroke={RD} strokeWidth="2"/>
+            <line x1="138" y1="72" x2="138" y2="132" stroke={RD} strokeWidth="2.5"/>
+            <text x="138" y="142" fontSize="8.5" fill={RD} fontWeight="700" textAnchor="middle">Long wick</text>
           </svg>
           <div style={{flex:1,minWidth:"140px",fontSize:"0.75rem",color:"#5a4535",lineHeight:"1.6",paddingTop:"4px"}}>
             The candle on the left shows a typical body with modest wicks on both ends. The one on the right has a small body but a long upper wick — price pushed up sharply, then got rejected and pulled back down before the period closed.
