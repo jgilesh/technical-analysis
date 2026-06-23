@@ -141,7 +141,7 @@ function BreakoutChart() {
   const vols = [18,14,12,15,11,13,32,22,20,16,18];
   const vBase = 118;
   return (
-    <ChartFrame width={280} height={130} label="Breakout — strong candle closes above resistance on high volume">
+    <ChartFrame width={280} height={148} label="Breakout — strong candle closes above resistance on high volume">
       <line x1={8} y1={res} x2={272} y2={res} stroke={OR} strokeWidth="1.5" strokeDasharray="4 3"/>
       <text x={8} y={res-4} fontSize="8" fill={OR} fontWeight="700">Resistance</text>
       {candles.map((c,i)=>(
@@ -154,7 +154,7 @@ function BreakoutChart() {
         return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v}
           fill={isBreakout?OR:"#9a7a5540"} rx="1"/>;
       })}
-      <text x={137} y={112} fontSize="8" fill={OR} fontWeight="700">↑ Vol spike</text>
+      <text x={145} y={140} fontSize="8" fill={OR} fontWeight="700" textAnchor="middle">Vol spike</text>
     </ChartFrame>
   );
 }
@@ -180,7 +180,7 @@ function BreakdownChart() {
   const vols = [14,16,12,13,11,14,30,20,16,15,17];
   const vBase = 128;
   return (
-    <ChartFrame width={280} height={138} label="Breakdown — candle closes below support on high volume">
+    <ChartFrame width={280} height={150} label="Breakdown — candle closes below support on high volume">
       <line x1={8} y1={sup} x2={272} y2={sup} stroke={PU} strokeWidth="1.5" strokeDasharray="4 3"/>
       <text x={8} y={sup-4} fontSize="8" fill={PU} fontWeight="700">Support</text>
       {candles.map((c,i)=>(
@@ -192,7 +192,7 @@ function BreakdownChart() {
         return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v}
           fill={isBreakdown?RD:"#9a7a5540"} rx="1"/>;
       })}
-      <text x={134} y={vBase+8} fontSize="8" fill={RD} fontWeight="700">↓ Vol spike</text>
+      <text x={145} y={142} fontSize="8" fill={RD} fontWeight="700" textAnchor="middle">Vol spike</text>
     </ChartFrame>
   );
 }
@@ -229,6 +229,59 @@ function TrendLineChart() {
         </g>
       ))}
     </ChartFrame>
+  );
+}
+
+/* ── Trending vs Ranging Chart (side by side) ── */
+function TrendingVsRangingChart() {
+  // Trending: clear higher highs / higher lows
+  const trendCandles = [
+    {cx:14, wt:78, bt:84, bb:96,  wb:102, bull:true},
+    {cx:30, wt:66, bt:72, bb:84,  wb:90,  bull:true},
+    {cx:46, wt:70, bt:76, bb:88,  wb:94,  bull:false},
+    {cx:62, wt:54, bt:60, bb:72,  wb:78,  bull:true},
+    {cx:78, wt:42, bt:48, bb:60,  wb:66,  bull:true},
+    {cx:94, wt:46, bt:52, bb:64,  wb:70,  bull:false},
+    {cx:110,wt:30, bt:36, bb:48,  wb:54,  bull:true},
+    {cx:126,wt:18, bt:24, bb:36,  wb:42,  bull:true},
+  ];
+  // Ranging: bounded between flat ceiling and floor
+  const rangeCandles = [
+    {cx:14, wt:30, bt:36, bb:48, wb:54, bull:false},
+    {cx:30, wt:46, bt:52, bb:64, wb:70, bull:false},
+    {cx:46, wt:60, bt:66, bb:78, wb:84, bull:true},
+    {cx:62, wt:44, bt:50, bb:62, wb:68, bull:true},
+    {cx:78, wt:30, bt:36, bb:48, wb:54, bull:false},
+    {cx:94, wt:48, bt:54, bb:66, wb:72, bull:false},
+    {cx:110,wt:62, bt:68, bb:80, wb:86, bull:true},
+    {cx:126,wt:44, bt:50, bb:62, wb:68, bull:true},
+  ];
+  return (
+    <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginTop:"8px", marginBottom:"12px"}}>
+      <div style={{background:"#1a1108",borderRadius:"10px",padding:"10px 10px"}}>
+        <div style={{fontSize:"0.58rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+          color:GR,marginBottom:"6px"}}>Trending</div>
+        <svg width="100%" viewBox="0 0 140 110" style={{display:"block",overflow:"visible"}}>
+          <line x1={6} y1={92} x2={132} y2={16} stroke={GR} strokeWidth="1.5" strokeDasharray="4 3"/>
+          {trendCandles.map((c,i)=>(
+            <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>
+          ))}
+        </svg>
+        <div style={{fontSize:"0.66rem",color:"#d4a87a",lineHeight:"1.5",marginTop:"4px"}}>Higher highs, higher lows — clear direction.</div>
+      </div>
+      <div style={{background:"#1a1108",borderRadius:"10px",padding:"10px 10px"}}>
+        <div style={{fontSize:"0.58rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+          color:GD,marginBottom:"6px"}}>Ranging</div>
+        <svg width="100%" viewBox="0 0 140 110" style={{display:"block",overflow:"visible"}}>
+          <line x1={6} y1={28} x2={132} y2={28} stroke={RD} strokeWidth="1.5" strokeDasharray="4 3"/>
+          <line x1={6} y1={86} x2={132} y2={86} stroke={GR} strokeWidth="1.5" strokeDasharray="4 3"/>
+          {rangeCandles.map((c,i)=>(
+            <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>
+          ))}
+        </svg>
+        <div style={{fontSize:"0.66rem",color:"#d4a87a",lineHeight:"1.5",marginTop:"4px"}}>Bounded between a flat ceiling and floor — no clear direction.</div>
+      </div>
+    </div>
   );
 }
 
@@ -531,6 +584,9 @@ function TabChartBasics({ onNext }) {
       <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"16px"}}>
         Technical analysis is the practice of reading price action — the movement of a stock's price over time — to identify patterns, levels, and signals that help you decide when to enter or exit a trade. As an options trader, you're not investing in a company. You're trading price movement over a specific timeframe. That's exactly what TA is built for.
       </div>
+      <InfoBox accent={GD}>
+        <strong>Technical vs. fundamental analysis:</strong> Fundamental analysis looks at a company's financials, earnings, and business outlook to judge what a stock is worth. Technical analysis ignores all of that and focuses only on the chart — price and volume.
+      </InfoBox>
 
       <SectionLabel label="How to Read a Candlestick" sub="The building block of every chart" />
       <div style={{background:CA,border:`1px solid ${BD}`,borderRadius:"10px",padding:"16px",marginBottom:"12px"}}>
@@ -659,6 +715,9 @@ function TabKeyLevels({ onNext }) {
           <strong>How to spot it:</strong> Price has tested resistance multiple times without breaking it, then suddenly closes above it with a larger candle body than usual. The size of the candle and the volume behind it tell you whether buyers are serious or just testing the water.
         </div>
         <BreakoutChart />
+        <InfoBox accent={OR}>
+          <strong>Consolidation:</strong> Notice the tighter candles sitting just below resistance before the breakout. That narrow, sideways squeeze is consolidation — price coiling in a small range as buyers and sellers fight it out near the level. A breakout that comes after real consolidation tends to be more reliable than one that comes out of nowhere, since it shows pressure building before the move.
+        </InfoBox>
         <RuleBox rule="Wait for the candle to close above resistance — not just wick above it. A full candle close above the level on high volume is the confirmation." />
         <FlagRow
           green={["Candle closes above resistance on high volume","Volume is 1.5× the 20-day average or more","Price retests old resistance as new support"]}
@@ -677,6 +736,9 @@ function TabKeyLevels({ onNext }) {
           <strong>How to spot it:</strong> Price has held above support multiple times, then suddenly closes below it with a larger candle body than usual. Watch for the same level that used to act as a floor flipping into a ceiling on the next bounce attempt.
         </div>
         <BreakdownChart />
+        <InfoBox accent={PU}>
+          <strong>Consolidation:</strong> The same tight, sideways squeeze that precedes a breakout can also precede a breakdown. When candles narrow just above support, it's a sign of pressure building near the level — keep an eye on which direction it eventually resolves.
+        </InfoBox>
         <RuleBox rule="If your stock breaks down below a key support level on high volume, exit first and ask questions later. Do not hold and hope." />
         <FlagRow
           green={["Candle closes below support on high volume","Old support now acting as resistance","Multiple failed attempts to reclaim support"]}
@@ -702,6 +764,12 @@ function TabKeyLevels({ onNext }) {
         />
       </ExpandableCard>
 
+      <SectionLabel label="Trending vs. Ranging Markets" sub="The condition behind every level" />
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"4px"}}>
+        Not every stock is trending. A trending market makes a clear sequence of higher highs and higher lows (or lower highs and lower lows) — this is where trend lines apply. A ranging market moves sideways between a fairly fixed support and resistance, with no clear higher highs or lower lows forming. Recognizing which condition you're in matters just as much as spotting the levels themselves — it tells you whether you should be drawing a trend line or watching a support/resistance bounce.
+      </div>
+      <TrendingVsRangingChart />
+
       <NextBtn label="Indicators" onClick={onNext} />
     </div>
   );
@@ -718,6 +786,9 @@ function TabIndicators() {
       </DarkCallout>
       <InfoBox accent={OR}>
         <strong>How to use them:</strong> Every indicator is a secondary signal, not a primary one. The candles tell you what price is doing. Indicators help you measure how strong or weak that move is. Use them to confirm what you're already seeing, not to find a trade you wouldn't have spotted otherwise.
+      </InfoBox>
+      <InfoBox accent={GR}>
+        <strong>Confluence:</strong> When multiple signals point the same direction at the same time — for example, price bouncing off support while RSI turns up from oversold — that's confluence. The more signals that agree, the more weight the read carries. One signal alone is a clue. Several signals together are a stronger picture.
       </InfoBox>
 
       <SectionLabel label="The Indicators" sub="Tap each to expand" />
