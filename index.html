@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Technical Analysis — demystified</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:#F5F0E8; font-family:system-ui,-apple-system,sans-serif; color:#1a1108; min-height:100vh; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+.fu { animation:fadeUp 0.3s ease forwards; }
+.si { animation:slideIn 0.25s ease forwards; }
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#C4A460;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const OR="#F5853F", RD="#D94F2A", GR="#0D9E6E", GD="#C4A460", PU="#7C5CBF", BL="#2A7ED4";
+const DK="#1a1108", CA="#fffcf7", BD="#e8ddd0";
+
+/* ─────────────────────────────────────────
+   SVG CANDLESTICK CHART PRIMITIVES
+───────────────────────────────────────── */
+
+// Draw a single candle: cx=center x, top=wick top, open, close, low=wick bottom
+function Candle({ cx, wickTop, bodyTop, bodyBot, wickBot, bullish, w=10 }) {
+  const fill = bullish ? "#e8faf3" : "#fff0ee";
+  const stroke = bullish ? GR : RD;
+  return (
+    <g>
+      <line x1={cx} y1={wickTop} x2={cx} y2={bodyTop} stroke={stroke} strokeWidth="1.5"/>
+      <rect x={cx - w/2} y={bodyTop} width={w} height={Math.max(2, bodyBot - bodyTop)}
+        fill={fill} stroke={stroke} strokeWidth="1.5" rx="1"/>
+      <line x1={cx} y1={bodyBot} x2={cx} y2={wickBot} stroke={stroke} strokeWidth="1.5"/>
+    </g>
+  );
+}
+
+function ChartFrame({ width=320, height=130, children, label }) {
+  return (
+    <div style={{background:"#1a1108",borderRadius:"10px",padding:"12px 14px",marginBottom:"12px",marginTop:"8px"}}>
+      {label && <div style={{fontSize:"0.6rem",fontWeight:"700",letterSpacing:"0.12em",textTransform:"uppercase",
+        color:"#9a7a55",marginBottom:"8px"}}>{label}</div>}
+      <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{display:"block",overflow:"visible"}}>
+        {children}
+      </svg>
+    </div>
+  );
+}
+
+/* ── Support Chart ── */
+function SupportChart() {
+  // Price falls, bounces off support line twice
+  const sup = 90;
+  const candles = [
+    {cx:20, wt:20, bt:32, bb:52, wb:58, bull:false},
+    {cx:40, wt:38, bt:46, bb:62, wb:68, bull:false},
+    {cx:60, wt:55, bt:64, bb:78, wb:84, bull:false},
+    {cx:80, wt:72, bt:80, bb:88, wb:94, bull:true},   // touch support, bounce
+    {cx:100,wt:68, bt:74, bb:84, wb:88, bull:true},
+    {cx:120,wt:52, bt:60, bb:72, wb:76, bull:true},
+    {cx:140,wt:44, bt:52, bb:66, wb:70, bull:false},
+    {cx:160,wt:58, bt:66, bb:80, wb:88, bull:false},
+    {cx:180,wt:72, bt:80, bb:88, wb:94, bull:true},   // touch support again, bounce
+    {cx:200,wt:64, bt:70, bb:80, wb:84, bull:true},
+    {cx:220,wt:48, bt:56, bb:68, wb:72, bull:true},
+    {cx:240,wt:34, bt:42, bb:54, wb:58, bull:true},
+  ];
+  return (
+    <ChartFrame width={280} height={120} label="Support — price bounces off the same level twice">
+      {/* Support line */}
+      <line x1={8} y1={sup} x2={272} y2={sup} stroke={GR} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={8} y={sup-4} fontSize="8" fill={GR} fontWeight="700">Support</text>
+      {candles.map((c,i)=>(
+        <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull}/>
+      ))}
+      {/* Bounce arrows */}
+      <text x={74} y={108} fontSize="9" fill={GR}>↑</text>
+      <text x={174} y={108} fontSize="9" fill={GR}>↑</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Resistance Chart ── */
+function ResistanceChart() {
+  const res = 30;
+  const candles = [
+    {cx:20, wt:62, bt:70, bb:84, wb:90, bull:true},
+    {cx:40, wt:50, bt:58, bb:72, wb:76, bull:true},
+    {cx:60, wt:38, bt:46, bb:60, wb:64, bull:true},
+    {cx:80, wt:24, bt:28, bb:40, wb:46, bull:false},  // touch resistance, reject
+    {cx:100,wt:34, bt:42, bb:56, wb:60, bull:false},
+    {cx:120,wt:48, bt:56, bb:70, wb:74, bull:false},
+    {cx:140,wt:38, bt:46, bb:58, wb:62, bull:true},
+    {cx:160,wt:26, bt:30, bb:42, wb:48, bull:false},  // touch resistance again, reject
+    {cx:180,wt:36, bt:44, bb:58, wb:62, bull:false},
+    {cx:200,wt:50, bt:58, bb:70, wb:76, bull:false},
+    {cx:220,wt:62, bt:68, bb:80, wb:86, bull:false},
+    {cx:240,wt:54, bt:60, bb:74, wb:78, bull:false},
+  ];
+  return (
+    <ChartFrame width={280} height={120} label="Resistance — price hits the ceiling and pulls back twice">
+      <line x1={8} y1={res} x2={272} y2={res} stroke={RD} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={8} y={res-4} fontSize="8" fill={RD} fontWeight="700">Resistance</text>
+      {candles.map((c,i)=>(
+        <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull}/>
+      ))}
+      <text x={74} y={14} fontSize="9" fill={RD}>↓</text>
+      <text x={154} y={14} fontSize="9" fill={RD}>↓</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Breakout Chart ── */
+function BreakoutChart() {
+  const res = 40;
+  const candles = [
+    {cx:20, wt:60, bt:68, bb:80, wb:86, bull:true},
+    {cx:40, wt:50, bt:56, bb:70, wb:74, bull:true},
+    {cx:60, wt:42, bt:48, bb:62, wb:66, bull:false},
+    {cx:80, wt:44, bt:50, bb:62, wb:66, bull:true},
+    {cx:100,wt:42, bt:46, bb:58, wb:62, bull:false},  // consolidating below res
+    {cx:120,wt:44, bt:48, bb:60, wb:64, bull:true},
+    // breakout candle — strong bullish close above resistance
+    {cx:145,wt:20, bt:24, bb:42, wb:48, bull:true},
+    // continuation
+    {cx:170,wt:10, bt:14, bb:26, wb:30, bull:true},
+    {cx:195,wt:4,  bt:8,  bb:20, wb:24, bull:true},
+    {cx:220,wt:8,  bt:12, bb:24, wb:28, bull:false},
+    {cx:245,wt:6,  bt:10, bb:22, wb:26, bull:true},
+  ];
+  // volume bars
+  const vols = [18,14,12,15,11,13,32,22,20,16,18];
+  const vBase = 118;
+  return (
+    <ChartFrame width={280} height={130} label="Breakout — strong candle closes above resistance on high volume">
+      <line x1={8} y1={res} x2={272} y2={res} stroke={OR} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={8} y={res-4} fontSize="8" fill={OR} fontWeight="700">Resistance</text>
+      {candles.map((c,i)=>(
+        <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={i===6?14:10}/>
+      ))}
+      {/* Volume bars */}
+      {vols.map((v,i)=>{
+        const cx = [20,40,60,80,100,120,145,170,195,220,245][i];
+        const isBreakout = i===6;
+        return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v}
+          fill={isBreakout?OR:"#9a7a5540"} rx="1"/>;
+      })}
+      <text x={137} y={112} fontSize="8" fill={OR} fontWeight="700">↑ Vol spike</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Breakdown Chart ── */
+function BreakdownChart() {
+  const sup = 70;
+  const candles = [
+    {cx:20, wt:20, bt:28, bb:42, wb:46, bull:false},
+    {cx:40, wt:30, bt:38, bb:52, wb:56, bull:false},
+    {cx:60, wt:42, bt:50, bb:62, wb:66, bull:true},
+    {cx:80, wt:50, bt:56, bb:68, wb:72, bull:false},
+    {cx:100,wt:52, bt:58, bb:70, wb:74, bull:true},  // consolidating above sup
+    {cx:120,wt:54, bt:60, bb:70, wb:74, bull:false},
+    // breakdown candle
+    {cx:145,wt:62, bt:68, bb:86, wb:92, bull:false},
+    // continuation down
+    {cx:170,wt:80, bt:86, bb:98, wb:104, bull:false},
+    {cx:195,wt:88, bt:94, bb:106, wb:110, bull:true},
+    {cx:220,wt:92, bt:98, bb:110, wb:114, bull:false},
+    {cx:245,wt:96, bt:102, bb:114, wb:118, bull:false},
+  ];
+  const vols = [14,16,12,13,11,14,30,20,16,15,17];
+  const vBase = 128;
+  return (
+    <ChartFrame width={280} height={138} label="Breakdown — candle closes below support on high volume">
+      <line x1={8} y1={sup} x2={272} y2={sup} stroke={PU} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={8} y={sup-4} fontSize="8" fill={PU} fontWeight="700">Support</text>
+      {candles.map((c,i)=>(
+        <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={i===6?14:10}/>
+      ))}
+      {vols.map((v,i)=>{
+        const cx = [20,40,60,80,100,120,145,170,195,220,245][i];
+        const isBreakdown = i===6;
+        return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v}
+          fill={isBreakdown?RD:"#9a7a5540"} rx="1"/>;
+      })}
+      <text x={134} y={vBase+8} fontSize="8" fill={RD} fontWeight="700">↓ Vol spike</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Trend Line Chart ── */
+function TrendLineChart() {
+  // Higher lows forming an uptrend
+  const candles = [
+    {cx:25,  wt:100, bt:108, bb:118, wb:124, bull:true},
+    {cx:50,  wt:88,  bt:96,  bb:108, wb:112, bull:false},
+    {cx:75,  wt:78,  bt:84,  bb:96,  wb:102, bull:true},   // HL1
+    {cx:100, wt:62,  bt:68,  bb:80,  wb:84,  bull:true},
+    {cx:125, wt:52,  bt:58,  bb:70,  wb:76,  bull:false},
+    {cx:150, wt:44,  bt:50,  bb:62,  wb:68,  bull:true},   // HL2
+    {cx:175, wt:30,  bt:36,  bb:48,  wb:52,  bull:true},
+    {cx:200, wt:20,  bt:26,  bb:38,  wb:42,  bull:true},
+    {cx:225, wt:14,  bt:20,  bb:32,  wb:38,  bull:false},
+    {cx:250, wt:10,  bt:16,  bb:28,  wb:32,  bull:true},   // HL3
+  ];
+  // Trend line connecting higher lows: ~(75,100), (150,66), (250,30)
+  return (
+    <ChartFrame width={280} height={140} label="Uptrend — higher lows connected by a rising trend line">
+      {/* Trend line */}
+      <line x1={20} y1={108} x2={265} y2={28} stroke={GD} strokeWidth="2" strokeDasharray="5 3"/>
+      <text x={210} y={22} fontSize="8" fill={GD} fontWeight="700">Trend line</text>
+      {candles.map((c,i)=>(
+        <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull}/>
+      ))}
+      {/* Higher low markers */}
+      {[[75,102],[150,68],[250,32]].map(([x,y],i)=>(
+        <g key={i}>
+          <circle cx={x} cy={y} r="4" fill="none" stroke={GD} strokeWidth="1.5"/>
+          <text x={x-6} y={y+14} fontSize="7" fill={GD}>HL{i+1}</text>
+        </g>
+      ))}
+    </ChartFrame>
+  );
+}
+
+/* ── Volume Chart ── */
+function VolumeChart() {
+  const candles = [
+    {cx:22, wt:50, bt:58, bb:70, wb:74, bull:true},
+    {cx:44, wt:44, bt:52, bb:64, wb:68, bull:false},
+    {cx:66, wt:48, bt:54, bb:66, wb:70, bull:true},
+    {cx:88, wt:46, bt:52, bb:64, wb:68, bull:false},
+    {cx:110,wt:42, bt:48, bb:60, wb:64, bull:true},
+    // breakout
+    {cx:136,wt:22, bt:26, bb:42, wb:46, bull:true},
+    {cx:162,wt:12, bt:16, bb:28, wb:32, bull:true},
+    {cx:188,wt:14, bt:18, bb:30, wb:34, bull:false},
+    {cx:214,wt:10, bt:14, bb:26, wb:30, bull:true},
+    {cx:240,wt:8,  bt:12, bb:24, wb:28, bull:true},
+  ];
+  const vols   = [14,12,15,11,13,36,22,16,18,20];
+  const avgVol = 14;
+  const vBase  = 108;
+  return (
+    <ChartFrame width={275} height={122} label="Volume — breakout candle shows 2× average volume">
+      {candles.map((c,i)=>(
+        <Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={i===5?14:10}/>
+      ))}
+      {/* Avg volume line */}
+      <line x1={8} y1={vBase-avgVol} x2={268} y2={vBase-avgVol} stroke={GD} strokeWidth="1" strokeDasharray="3 2"/>
+      <text x={8} y={vBase-avgVol-3} fontSize="7" fill={GD}>Avg vol</text>
+      {vols.map((v,i)=>{
+        const cx=[22,44,66,88,110,136,162,188,214,240][i];
+        return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v}
+          fill={i===5?OR:"#9a7a5540"} rx="1"/>;
+      })}
+      <text x={120} y={vBase+10} fontSize="7" fill={OR} fontWeight="700">↑ Spike</text>
+    </ChartFrame>
+  );
+}
+
+/* ── RSI Chart ── */
+function RSIChart() {
+  // Price chart top, RSI line bottom
+  const candles = [
+    {cx:22, wt:22, bt:28, bb:40, wb:44, bull:false},
+    {cx:44, wt:28, bt:34, bb:46, wb:50, bull:false},
+    {cx:66, wt:36, bt:42, bb:54, wb:58, bull:false},
+    {cx:88, wt:46, bt:52, bb:64, wb:68, bull:true},   // RSI oversold, turning up
+    {cx:110,wt:40, bt:46, bb:56, wb:60, bull:true},
+    {cx:132,wt:30, bt:36, bb:46, wb:50, bull:true},
+    {cx:154,wt:20, bt:26, bb:36, wb:40, bull:true},
+    {cx:176,wt:14, bt:18, bb:30, wb:34, bull:true},
+    {cx:198,wt:10, bt:14, bb:24, wb:28, bull:false},
+    {cx:220,wt:8,  bt:12, bb:22, wb:26, bull:true},
+  ];
+  // RSI line points (y scaled: 70=rsiTop, 130=rsiBot; 0=130, 100=70)
+  const rsiTop=75, rsiBotLine=125;
+  const scaleRSI = v => rsiTop + ((100-v)/100)*(rsiBotLine-rsiTop);
+  const rsiVals = [68,60,42,28,35,48,58,65,62,68];
+  const rsiPts  = rsiVals.map((v,i)=>({x:[22,44,66,88,110,132,154,176,198,220][i], y:scaleRSI(v)}));
+  const pathD   = rsiPts.map((p,i)=>`${i===0?"M":"L"}${p.x},${p.y}`).join(" ");
+  const ob = scaleRSI(70), os = scaleRSI(30), mid = scaleRSI(50);
+  return (
+    <ChartFrame width={258} height={140} label="RSI — drops to oversold, then turns upward as price recovers">
+      {/* Price candles */}
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull}/>))}
+      {/* Divider */}
+      <line x1={8} y1={68} x2={250} y2={68} stroke="#3a2a18" strokeWidth="1"/>
+      {/* RSI zones */}
+      <rect x={8} y={rsiTop} width={242} height={ob-rsiTop} fill="#ff000010" rx="2"/>
+      <rect x={8} y={os}     width={242} height={rsiBotLine-os} fill="#00ff0010" rx="2"/>
+      <line x1={8} y1={ob}  x2={250} y2={ob}  stroke={RD} strokeWidth="0.8" strokeDasharray="3 2"/>
+      <line x1={8} y1={mid} x2={250} y2={mid} stroke="#9a7a55" strokeWidth="0.8" strokeDasharray="2 2"/>
+      <line x1={8} y1={os}  x2={250} y2={os}  stroke={GR} strokeWidth="0.8" strokeDasharray="3 2"/>
+      <text x={10} y={ob-3}  fontSize="7" fill={RD}>70</text>
+      <text x={10} y={mid-3} fontSize="7" fill="#9a7a55">50</text>
+      <text x={10} y={os-3}  fontSize="7" fill={GR}>30</text>
+      {/* RSI line */}
+      <path d={pathD} fill="none" stroke={OR} strokeWidth="2"/>
+      {/* Oversold dot */}
+      <circle cx={88} cy={scaleRSI(28)} r="4" fill={GR}/>
+      <text x={92} y={scaleRSI(28)+3} fontSize="7" fill={GR}>Oversold</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Moving Averages Chart ── */
+function MAChart() {
+  const candles = [
+    {cx:22, wt:60, bt:66, bb:78, wb:82, bull:false},
+    {cx:44, wt:64, bt:70, bb:82, wb:86, bull:false},
+    {cx:66, wt:68, bt:74, bb:82, wb:86, bull:true},   // bounce off 50 MA
+    {cx:88, wt:58, bt:62, bb:74, wb:78, bull:true},
+    {cx:110,wt:46, bt:52, bb:62, wb:66, bull:true},
+    {cx:132,wt:36, bt:40, bb:52, wb:56, bull:true},
+    {cx:154,wt:28, bt:32, bb:44, wb:48, bull:false},
+    {cx:176,wt:30, bt:34, bb:46, wb:50, bull:true},   // bounce off 50 MA again
+    {cx:198,wt:20, bt:24, bb:36, wb:40, bull:true},
+    {cx:220,wt:12, bt:16, bb:28, wb:32, bull:true},
+  ];
+  // 50 MA and 200 MA (simplified smooth lines)
+  const ma50  = [[22,80],[44,78],[66,76],[88,72],[110,66],[132,58],[154,52],[176,48],[198,42],[220,36]];
+  const ma200 = [[22,92],[44,90],[66,88],[88,86],[110,84],[132,82],[154,80],[176,78],[198,76],[220,74]];
+  const toPath = pts => pts.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ");
+  return (
+    <ChartFrame width={258} height={112} label="Moving averages — price bounces off the 50 MA twice">
+      <path d={toPath(ma200)} fill="none" stroke={PU} strokeWidth="1.5" strokeDasharray="4 2"/>
+      <path d={toPath(ma50)}  fill="none" stroke={GD} strokeWidth="1.8"/>
+      <text x={224} y={33}  fontSize="7" fill={GD}>50 MA</text>
+      <text x={224} y={71}  fontSize="7" fill={PU}>200 MA</text>
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull}/>))}
+      {/* Bounce markers */}
+      <circle cx={66} cy={76} r="4" fill="none" stroke={GD} strokeWidth="1.5"/>
+      <circle cx={176} cy={48} r="4" fill="none" stroke={GD} strokeWidth="1.5"/>
+    </ChartFrame>
+  );
+}
+
+/* ── MACD Chart ── */
+function MACDChart() {
+  const candles = [
+    {cx:22, wt:52, bt:58, bb:70, wb:74, bull:false},
+    {cx:44, wt:56, bt:62, bb:74, wb:78, bull:false},
+    {cx:66, wt:60, bt:66, bb:78, wb:82, bull:false},
+    {cx:88, wt:62, bt:68, bb:78, wb:82, bull:true},   // MACD crossover here
+    {cx:110,wt:50, bt:56, bb:66, wb:70, bull:true},
+    {cx:132,wt:38, bt:44, bb:54, wb:58, bull:true},
+    {cx:154,wt:26, bt:32, bb:42, wb:46, bull:true},
+    {cx:176,wt:18, bt:22, bb:34, wb:38, bull:true},
+    {cx:198,wt:12, bt:16, bb:28, wb:32, bull:false},
+    {cx:220,wt:10, bt:14, bb:26, wb:30, bull:true},
+  ];
+  // MACD line, signal line, histogram — bottom panel
+  const mBase = 135, mMid = 108;
+  const macdLine   = [[22,118],[44,116],[66,115],[88,110],[110,104],[132,100],[154,98],[176,97],[198,98],[220,97]];
+  const signalLine = [[22,120],[44,119],[66,117],[88,113],[110,107],[132,102],[154,100],[176,98],[198,98],[220,97]];
+  const histHeights= [-2,-3,-2, 3,  3,   2,   2,   1,   0,   0];
+  const toPath = pts => pts.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ");
+  return (
+    <ChartFrame width={258} height={148} label="MACD — bullish crossover confirms upward momentum">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull}/>))}
+      {/* Divider */}
+      <line x1={8} y1={90} x2={250} y2={90} stroke="#3a2a18" strokeWidth="1"/>
+      {/* Zero line */}
+      <line x1={8} y1={mMid} x2={250} y2={mMid} stroke="#9a7a5540" strokeWidth="1" strokeDasharray="2 2"/>
+      {/* Histogram */}
+      {histHeights.map((h,i)=>{
+        const cx=[22,44,66,88,110,132,154,176,198,220][i];
+        const isPos = h>=0;
+        return <rect key={i} x={cx-5} y={isPos?mMid-h*3:mMid} width={10}
+          height={Math.abs(h)*3} fill={isPos?GR:RD} rx="1" opacity="0.7"/>;
+      })}
+      {/* Lines */}
+      <path d={toPath(macdLine)}   fill="none" stroke={BL} strokeWidth="1.8"/>
+      <path d={toPath(signalLine)} fill="none" stroke={OR} strokeWidth="1.5" strokeDasharray="3 2"/>
+      <text x={10} y={97}  fontSize="7" fill={BL}>MACD</text>
+      <text x={10} y={106} fontSize="7" fill={OR}>Signal</text>
+      {/* Crossover marker */}
+      <circle cx={88} cy={110} r="4" fill="none" stroke={GR} strokeWidth="1.5"/>
+      <text x={78} y={144} fontSize="7" fill={GR}>✓ Crossover</text>
+    </ChartFrame>
+  );
+}
+
+/* ─────────────────────────────────────────
+   SHARED COMPONENTS
+───────────────────────────────────────── */
+
+function NextBtn({ label, onClick }) {
+  return (
+    <button onClick={onClick} style={{background:OR,border:"none",borderRadius:"999px",
+      padding:"10px 26px",color:"#fff",fontWeight:"700",fontSize:"0.82rem",
+      letterSpacing:"0.06em",cursor:"pointer",display:"flex",alignItems:"center",
+      gap:"6px",margin:"24px auto 0"}}>
+      {label} →
+    </button>
+  );
+}
+
+function DarkCallout({ eyebrow, children }) {
+  return (
+    <div style={{background:"linear-gradient(130deg,#1a1108,#2c1d0e)",borderRadius:"12px",
+      padding:"16px 20px",marginBottom:"16px"}}>
+      <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.15em",
+        textTransform:"uppercase",color:"#9a7a55",marginBottom:"8px"}}>{eyebrow}</div>
+      <div style={{fontSize:"0.88rem",color:"#e8ddd0",lineHeight:"1.7"}}>{children}</div>
+    </div>
+  );
+}
+
+function RuleBox({ rule }) {
+  return (
+    <div style={{background:"linear-gradient(130deg,#1a1108,#2c1d0e)",borderRadius:"8px",
+      padding:"11px 13px",marginBottom:"10px"}}>
+      <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.12em",
+        textTransform:"uppercase",color:"#9a7a55",marginBottom:"6px"}}>⚡ The Rule</div>
+      <div style={{fontSize:"0.78rem",lineHeight:"1.65",color:"#e8ddd0"}}>{rule}</div>
+    </div>
+  );
+}
+
+function SectionLabel({ label, sub }) {
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px",
+      paddingBottom:"8px",borderBottom:"2px solid #e8ddd033"}}>
+      <div style={{width:"3px",height:"22px",background:OR,borderRadius:"2px"}}/>
+      <div>
+        <div style={{fontWeight:"700",fontSize:"0.88rem",color:DK}}>{label}</div>
+        {sub && <div style={{fontSize:"0.72rem",color:"#8a7560"}}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+function ChecklistBridge() {
+  return (
+    <div style={{background:"linear-gradient(130deg,#1a1108,#2c1d0e)",borderRadius:"12px",
+      padding:"20px",marginTop:"28px",textAlign:"center"}}>
+      <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.15em",
+        textTransform:"uppercase",color:"#9a7a55",marginBottom:"8px"}}>✓ Ready to Apply This?</div>
+      <div style={{fontSize:"0.88rem",color:"#e8ddd0",lineHeight:"1.6",marginBottom:"16px"}}>
+        Use the Pre-Trade Checklist to confirm your setup before entering any trade.
+      </div>
+      <a href="https://pre-trade-checklist.vercel.app/" target="_blank"
+        style={{display:"inline-flex",alignItems:"center",gap:"6px",background:OR,
+          borderRadius:"999px",padding:"10px 24px",textDecoration:"none",
+          color:"#fff",fontWeight:"700",fontSize:"0.82rem",letterSpacing:"0.06em"}}>
+        Open Checklist →
+      </a>
+    </div>
+  );
+}
+
+function ExpandableCard({ title, accent=OR, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{borderRadius:"10px",border:`1px solid ${BD}`,marginBottom:"8px",
+      background:CA,overflow:"hidden"}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{width:"100%",background:"none",border:"none",
+        padding:"13px 15px",display:"flex",justifyContent:"space-between",alignItems:"center",
+        cursor:"pointer",textAlign:"left"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+          <div style={{width:"3px",height:"18px",background:accent,borderRadius:"2px",flexShrink:0}}/>
+          <span style={{fontWeight:"700",fontSize:"0.84rem",color:DK}}>{title}</span>
+        </div>
+        <span style={{color:accent,fontSize:"1rem",fontWeight:"700",transition:"transform 0.2s",
+          transform:open?"rotate(45deg)":"rotate(0deg)"}}>+</span>
+      </button>
+      {open && (
+        <div className="si" style={{padding:"0 15px 15px 15px",borderTop:`1px solid ${BD}`}}>
+          <div style={{height:"10px"}}/>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoBox({ children, accent=GD }) {
+  return (
+    <div style={{background:"#fef9f0",border:`1px solid ${accent}44`,borderLeft:`3px solid ${accent}`,
+      borderRadius:"8px",padding:"10px 13px",marginBottom:"10px",
+      fontSize:"0.78rem",color:"#5a4535",lineHeight:"1.65"}}>
+      {children}
+    </div>
+  );
+}
+
+function FlagRow({ green, red }) {
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginTop:"10px"}}>
+      <div style={{background:"#f0faf5",border:"1px solid #a7f3d044",borderRadius:"8px",padding:"10px 12px"}}>
+        <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+          color:GR,marginBottom:"6px"}}>✅ Green Flags</div>
+        {green.map((g,i)=>(
+          <div key={i} style={{fontSize:"0.75rem",color:"#1a4a30",lineHeight:"1.55",marginBottom:"4px"}}>• {g}</div>
+        ))}
+      </div>
+      <div style={{background:"#fff5f5",border:"1px solid #fca5a544",borderRadius:"8px",padding:"10px 12px"}}>
+        <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+          color:RD,marginBottom:"6px"}}>🚩 Red Flags</div>
+        {red.map((r,i)=>(
+          <div key={i} style={{fontSize:"0.75rem",color:"#4a1a1a",lineHeight:"1.55",marginBottom:"4px"}}>• {r}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   TAB 1 — CHART BASICS
+══════════════════════════════════════════ */
+function TabChartBasics({ onNext }) {
+  return (
+    <div className="fu">
+      <DarkCallout eyebrow="Technical Analysis">
+        Before you look at a single indicator, you need to know how to read a chart. The chart is the map — everything else is a tool to help you read it better.
+      </DarkCallout>
+
+      <SectionLabel label="What Is Technical Analysis?" />
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"16px"}}>
+        Technical analysis is the practice of reading price action — the movement of a stock's price over time — to identify patterns, levels, and signals that help you decide when to enter or exit a trade. As an options trader, you're not investing in a company. You're trading price movement over a specific timeframe. That's exactly what TA is built for.
+      </div>
+
+      <SectionLabel label="How to Read a Candlestick" sub="The building block of every chart" />
+      <div style={{background:CA,border:`1px solid ${BD}`,borderRadius:"10px",padding:"16px",marginBottom:"12px"}}>
+        <div style={{display:"flex",gap:"20px",alignItems:"flex-start",flexWrap:"wrap"}}>
+          <svg width="72" height="160" viewBox="0 0 72 160" style={{flexShrink:0}}>
+            {/* Bullish hollow candle */}
+            <line x1="36" y1="8" x2="36" y2="38" stroke={GR} strokeWidth="2.5"/>
+            <rect x="20" y="38" width="32" height="58" rx="3" fill="#f0faf5" stroke={GR} strokeWidth="2"/>
+            <line x1="36" y1="96" x2="36" y2="132" stroke={GR} strokeWidth="2.5"/>
+            <text x="58" y="12"  fontSize="8.5" fill="#8a7560">High</text>
+            <text x="58" y="44"  fontSize="8.5" fill={GR}>Close</text>
+            <text x="58" y="94"  fontSize="8.5" fill={GR}>Open</text>
+            <text x="58" y="136" fontSize="8.5" fill="#8a7560">Low</text>
+            <line x1="54" y1="10"  x2="58" y2="10"  stroke="#8a7560" strokeWidth="1"/>
+            <line x1="54" y1="42"  x2="58" y2="42"  stroke={GR} strokeWidth="1"/>
+            <line x1="54" y1="92"  x2="58" y2="92"  stroke={GR} strokeWidth="1"/>
+            <line x1="54" y1="132" x2="58" y2="132" stroke="#8a7560" strokeWidth="1"/>
+          </svg>
+          <div style={{flex:1,minWidth:"160px"}}>
+            {[
+              {label:"Body",      color:GR,        desc:"The range between open and close. Hollow = price moved up (bullish). Filled = price moved down (bearish)."},
+              {label:"Upper wick",color:"#8a7560", desc:"How high price reached during the session, above the open/close range."},
+              {label:"Lower wick",color:"#8a7560", desc:"How low price fell during the session, below the open/close range."},
+              {label:"Long wicks",color:GD,        desc:"Long wicks at key levels signal rejection — the market pushed hard but got pushed back."},
+            ].map((row,i)=>(
+              <div key={i} style={{display:"flex",gap:"8px",marginBottom:"8px",alignItems:"flex-start"}}>
+                <div style={{width:"8px",height:"8px",borderRadius:"50%",background:row.color,marginTop:"4px",flexShrink:0}}/>
+                <div>
+                  <span style={{fontWeight:"700",fontSize:"0.75rem",color:DK}}>{row.label}: </span>
+                  <span style={{fontSize:"0.75rem",color:"#5a4535"}}>{row.desc}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <RuleBox rule="Always use candlestick charts for trade analysis. They give you open, high, low, and close in one glance — more information than any other chart type." />
+
+      <SectionLabel label="Timeframes" sub="What each one shows you" />
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"12px"}}>
+        Every timeframe is a different lens on the same stock. A monthly chart and a 15-minute chart are showing you the same price — just at different levels of zoom. Understanding what each lens reveals is what lets you build a complete picture before making any decision.
+      </div>
+      {[
+        {label:"Monthly", tag:"Widest view", color:PU, desc:"One candle = one month of price action. Shows the longest-term trend and the most significant support and resistance levels — zones that have held or broken over years. These levels carry the most weight because the most people are watching them."},
+        {label:"Weekly",  tag:"Big picture", color:BL, desc:"One candle = one week. Confirms the intermediate trend and shows where price has spent meaningful time. Weekly levels are widely watched by institutional traders, making them reliable reference points."},
+        {label:"Daily",   tag:"The standard", color:OR, desc:"One candle = one trading day. The most commonly referenced timeframe for identifying trends, marking key levels, and reading price action. Most chart analysis starts and ends here."},
+        {label:"4H / 1H", tag:"Medium zoom", color:GD, desc:"One candle = 4 hours or 1 hour. Shows how price is moving within the context of the daily trend. Useful for seeing momentum building or fading between daily candles."},
+        {label:"15M and below", tag:"Short zoom", color:RD, desc:"One candle = 15 minutes or less. High detail, high noise. These timeframes capture micro-movements that can look significant but often aren't. More data doesn't always mean more clarity."},
+      ].map((tf,i)=>(
+        <div key={i} style={{background:CA,border:`1px solid ${BD}`,borderLeft:`3px solid ${tf.color}`,
+          borderRadius:"9px",padding:"12px 14px",marginBottom:"7px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"}}>
+            <span style={{fontWeight:"700",fontSize:"0.84rem",color:DK}}>{tf.label}</span>
+            <span style={{fontSize:"0.65rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+              color:tf.color,background:`${tf.color}18`,borderRadius:"4px",padding:"2px 6px"}}>{tf.tag}</span>
+          </div>
+          <div style={{fontSize:"0.77rem",color:"#5a4535",lineHeight:"1.6"}}>{tf.desc}</div>
+        </div>
+      ))}
+
+      <NextBtn label="Key Levels" onClick={onNext} />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   TAB 2 — KEY LEVELS
+══════════════════════════════════════════ */
+function TabKeyLevels({ onNext }) {
+  return (
+    <div className="fu">
+      <DarkCallout eyebrow="Key Levels">
+        Key levels are price zones where the market has repeatedly paused, reversed, or broken through. Learning to spot them is the single most important charting skill for an options trader.
+      </DarkCallout>
+
+      <SectionLabel label="The Five Key Levels" sub="Tap each to expand" />
+
+      <ExpandableCard title="Support" accent={GR}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A price zone where buying pressure has historically stopped a stock from falling further — a floor.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> If a stock approaches strong support, it may bounce — a potential entry for a call contract.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How to spot it:</strong> Look for at least two separate touches where price dropped to roughly the same area and turned back up. The more times it holds, the more traders are watching it, which makes the bounce more reliable.
+        </div>
+        <SupportChart />
+        <RuleBox rule="Mark support levels before looking for entry signals. Price approaching support is not a trade — it's a zone to watch." />
+        <FlagRow
+          green={["Level tested 2+ times and held","Volume drops as price nears support","Bullish candle pattern forms at the level"]}
+          red={["Prior breakdown through this level on high volume","Multiple failed bounces recently","Strong downtrend still in place"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="Resistance" accent={RD}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A price zone where selling pressure has repeatedly stopped a stock from moving higher — a ceiling.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> Stocks pressing against resistance may stall or reverse. This is where calls lose steam and puts gain it.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How to spot it:</strong> Look for at least two separate touches where price rose to roughly the same area and turned back down. Each rejection adds weight to the level — the third or fourth test is often the one that finally breaks it.
+        </div>
+        <ResistanceChart />
+        <RuleBox rule="Never enter a call trade when price is already pressing against major resistance. Wait for a confirmed breakout above it first." />
+        <FlagRow
+          green={["Level is well-defined with 2+ touches","Price is consolidating well below resistance","Volume is low near the resistance zone"]}
+          red={["Price is already at or above resistance","Bearish candle patterns forming at the level","Resistance tested 4+ times without a break"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="Breakout" accent={OR}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> When price moves decisively above a resistance level, confirming that buyers have taken control. The old ceiling becomes the new floor.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> A confirmed breakout is one of the strongest entry signals for a call contract — price has room to run.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How to spot it:</strong> Price has tested resistance multiple times without breaking it, then suddenly closes above it with a larger candle body than usual. The size of the candle and the volume behind it tell you whether buyers are serious or just testing the water.
+        </div>
+        <BreakoutChart />
+        <RuleBox rule="Wait for the candle to close above resistance — not just wick above it. A full candle close above the level on high volume is the confirmation." />
+        <FlagRow
+          green={["Candle closes above resistance on high volume","Volume is 1.5× the 20-day average or more","Price retests old resistance as new support"]}
+          red={["Wick above resistance but close below (false breakout)","Low volume on the breakout candle","Broad market selling off on the same day"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="Breakdown" accent={PU}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> When price moves decisively below a support level, confirming that sellers have taken control. The old floor becomes the new ceiling.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> A confirmed breakdown signals downside — a warning to exit existing call positions or consider puts.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How to spot it:</strong> Price has held above support multiple times, then suddenly closes below it with a larger candle body than usual. Watch for the same level that used to act as a floor flipping into a ceiling on the next bounce attempt.
+        </div>
+        <BreakdownChart />
+        <RuleBox rule="If your stock breaks down below a key support level on high volume, exit first and ask questions later. Do not hold and hope." />
+        <FlagRow
+          green={["Candle closes below support on high volume","Old support now acting as resistance","Multiple failed attempts to reclaim support"]}
+          red={["Price dipped below but quickly recovered","Low volume on the breakdown candle","Broader market rallying on the same day"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="Trend Lines" accent={GD}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A diagonal line connecting a series of higher lows (uptrend) or lower highs (downtrend). It shows the direction and slope of price movement over time.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> Trading with the trend improves your probability significantly. Trend lines help you visualize whether price is moving in your favor.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How to spot it:</strong> Connect at least two or three swing lows (in an uptrend) or swing highs (in a downtrend) with a straight line. A trend line only becomes meaningful once price has touched and respected it more than once — a single connection is just a guess.
+        </div>
+        <TrendLineChart />
+        <RuleBox rule="Identify the trend direction before looking for an entry. Trading against the trend is possible — but it's swimming upstream." />
+        <FlagRow
+          green={["Higher highs and higher lows in sequence","Trend line tested and held 2+ times","Volume increasing in the trend direction"]}
+          red={["Trend line has been broken","Price is choppy with no clear direction","Multiple failed attempts to resume the trend"]}
+        />
+      </ExpandableCard>
+
+      <NextBtn label="Indicators" onClick={onNext} />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   TAB 3 — INDICATORS
+══════════════════════════════════════════ */
+function TabIndicators() {
+  return (
+    <div className="fu">
+      <DarkCallout eyebrow="Indicators">
+        Indicators are tools you layer on top of a price chart. They take the raw price and volume data from the candles and run it through a formula — then display the result as a line, a histogram, or a scale directly on or below your chart. They don't add new information. They organize the information that's already there into a format that's easier to read at a glance.
+      </DarkCallout>
+      <InfoBox accent={OR}>
+        <strong>How to use them:</strong> Every indicator is a secondary signal, not a primary one. The candles tell you what price is doing. Indicators help you measure how strong or weak that move is. Use them to confirm what you're already seeing, not to find a trade you wouldn't have spotted otherwise.
+      </InfoBox>
+
+      <SectionLabel label="The Indicators" sub="Tap each to expand" />
+
+      <ExpandableCard title="Volume" accent={BL}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> The number of shares traded during a given period. Displayed as bars at the bottom of every chart, below the candles.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> Price moves on high volume are more significant than moves on low volume. A breakout with high volume is real. A breakout with low volume is suspect.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How it moves:</strong> Volume bars rise and fall with each candle. A normal day might show volume near its 20-day average. Spikes happen on news, earnings, or when a key level breaks. Low volume on a big price move often means low conviction behind it.
+        </div>
+        <VolumeChart />
+        <RuleBox rule="Check volume on every signal candle. Breakout candles should have volume at or above the 20-bar average. Low volume signals are unconfirmed signals." />
+        <FlagRow
+          green={["Breakout candle has 1.5× average volume or more","Volume increasing steadily in the trend direction","Volume spike on a support bounce"]}
+          red={["Breakout on below-average volume","Volume declining as price rises (divergence)","Volume spike against the trend direction"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="RSI — Relative Strength Index" accent={OR}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A momentum indicator that measures how fast and how much price has moved. Produces a number from 0 to 100, displayed as a line below the chart.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> RSI tells you whether a stock is overbought (due for a pullback) or oversold (due for a bounce) — helping you avoid entering at the worst moment.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How it moves:</strong> RSI usually oscillates between 30 and 70 during normal market conditions. It rises when a stock has more or stronger up candles recently, and falls when down candles dominate. A sharp drop in RSI signals fading momentum, even if price hasn't reversed yet.
+        </div>
+        <RSIChart />
+        <div style={{background:"#f7f0e6",borderRadius:"9px",padding:"11px 13px",marginBottom:"10px"}}>
+          {[
+            {range:"70–100",label:"Overbought",color:RD,  desc:"May be due for a pullback. Avoid new call entries."},
+            {range:"50–70", label:"Bullish momentum",color:OR,  desc:"Trending up with strength. Favorable for call setups."},
+            {range:"30–50", label:"Bearish momentum",color:GD,  desc:"Losing momentum. Watch for reversal before entering."},
+            {range:"0–30",  label:"Oversold",color:GR,  desc:"May be due for a bounce. Watch for call opportunities."},
+          ].map((row,i)=>(
+            <div key={i} style={{display:"flex",gap:"10px",alignItems:"flex-start",marginBottom:"7px"}}>
+              <div style={{background:row.color,color:"#fff",borderRadius:"5px",padding:"2px 7px",
+                fontSize:"0.67rem",fontWeight:"700",whiteSpace:"nowrap",flexShrink:0}}>{row.range}</div>
+              <div>
+                <span style={{fontWeight:"700",fontSize:"0.75rem",color:DK}}>{row.label} — </span>
+                <span style={{fontSize:"0.74rem",color:"#5a4535"}}>{row.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <RuleBox rule="[Placeholder — Dominique's RSI thresholds to be confirmed.] Example: Avoid entering calls when RSI is above 70. Look for RSI turning upward from below 50 as a bullish confirmation signal." />
+        <FlagRow
+          green={["RSI rising from oversold (below 30)","RSI crossing above 50 after a pullback","RSI confirming price breakout (both moving up)"]}
+          red={["RSI above 70 — stock may be overextended","Price making new highs but RSI falling (divergence)","RSI dropping below 50 in an uptrending stock"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="Moving Averages (50 MA / 200 MA)" accent={GD}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A line that plots the average closing price over a set number of periods. The 50 MA averages the last 50 days. The 200 MA averages the last 200 days. Both overlay directly on the price chart.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> When price is above its MA, the trend is up. When price is below, the trend is down. MAs also act as dynamic support and resistance levels.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How it moves:</strong> A 50 MA reacts faster to recent price than a 200 MA, which shifts only slowly over time. When price stays above a moving average for a sustained stretch, that average tends to flatten out and rise, confirming the trend.
+        </div>
+        <MAChart />
+        <RuleBox rule="[Placeholder — to be confirmed.] Example: Prefer call setups where price is above both the 50 MA and 200 MA. A 50 MA crossover above the 200 MA (Golden Cross) signals a strong uptrend." />
+        <FlagRow
+          green={["Price trading above both 50 MA and 200 MA","50 MA recently crossed above 200 MA (Golden Cross)","Price pulling back to 50 MA and bouncing"]}
+          red={["Price trading below the 200 MA","50 MA crossed below 200 MA (Death Cross)","Price failed to reclaim 50 MA after a breakdown"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="MACD" accent={PU}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> Moving Average Convergence Divergence. A momentum indicator showing the relationship between two moving averages. Displayed below the chart as two lines and a histogram.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> MACD signals when momentum is building or fading. A bullish crossover — the fast line crossing above the slow line — is a common confirmation for entries.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How it moves:</strong> The MACD line reacts faster to price than the signal line. When the two lines are far apart, momentum is strong. When they converge or cross, momentum is shifting — that crossover is the moment most traders watch for.
+        </div>
+        <MACDChart />
+        <RuleBox rule="[Placeholder — to be confirmed.] Example: Use MACD as a confirming indicator only. Look for a bullish crossover to confirm a call entry you've already identified on price action." />
+        <FlagRow
+          green={["MACD line crossed above signal line","Histogram bars turning green and growing","Crossover happening above the zero line"]}
+          red={["MACD line crossed below signal line","Histogram bars shrinking after a long run","Price up but MACD falling (divergence)"]}
+        />
+      </ExpandableCard>
+
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   APP
+══════════════════════════════════════════ */
+function App() {
+  const [tab, setTab] = useState(0);
+
+  const TABS = [
+    {icon:"📊", label:"Chart Basics"},
+    {icon:"📏", label:"Key Levels"},
+    {icon:"📈", label:"Indicators"},
+  ];
+
+  return (
+    <div style={{minHeight:"100vh",background:"#F5F0E8",fontFamily:"system-ui,-apple-system,sans-serif"}}>
+
+      {/* Topbar */}
+      <div style={{background:DK,padding:"11px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"1.2rem",color:"#fff"}}>demystified</span>
+        <a href="https://options101-hub.vercel.app/"
+          style={{display:"flex",alignItems:"center",gap:"6px",background:"rgba(255,255,255,0.08)",
+            border:"1px solid rgba(255,255,255,0.14)",borderRadius:"999px",padding:"5px 14px",textDecoration:"none"}}
+          onMouseOver={e=>e.currentTarget.style.background="rgba(255,255,255,0.15)"}
+          onMouseOut={e=>e.currentTarget.style.background="rgba(255,255,255,0.08)"}>
+          <span style={{color:"#d4a87a",fontSize:"0.8rem"}}>←</span>
+          <span style={{fontSize:"0.65rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",color:"#d4a87a"}}>Options 101 Hub</span>
+        </a>
+        <div style={{width:"22px",height:"22px",background:OR,borderRadius:"5px"}}/>
+      </div>
+
+      <div style={{maxWidth:"860px",margin:"0 auto",padding:"22px 16px"}}>
+
+        {/* Header */}
+        <div style={{marginBottom:"18px"}}>
+          <h1 style={{fontFamily:"Georgia,serif",fontSize:"clamp(1.7rem,4vw,2.3rem)",color:DK,
+            letterSpacing:"-0.03em",lineHeight:"1.15",marginBottom:"4px"}}>Technical Analysis</h1>
+          <p style={{color:"#8a7560",fontSize:"0.85rem"}}>Read the chart before you enter the trade.</p>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:"3px",background:"#e4d8c8",borderRadius:"12px",padding:"3px",marginBottom:"10px"}}>
+          {TABS.map((t,i)=>(
+            <button key={i} onClick={()=>setTab(i)} style={{
+              flex:1, padding:"9px 4px", border:"none", borderRadius:"9px", cursor:"pointer",
+              fontWeight:"700", fontSize:"0.62rem", letterSpacing:"0.02em", transition:"all 0.18s",
+              background:tab===i?"#fff":"transparent",
+              color:tab===i?OR:"#8a7560",
+              boxShadow:tab===i?"0 1px 6px rgba(0,0,0,0.09)":"none", lineHeight:"1.3"
+            }}>
+              <div>{t.icon}</div>
+              <div style={{marginTop:"2px"}}>{t.label}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Progress bar */}
+        <div style={{height:"3px",background:"#e4d8c8",borderRadius:"2px",marginBottom:"20px"}}>
+          <div style={{height:"100%",width:`${(tab/(TABS.length-1))*100}%`,
+            background:OR,borderRadius:"2px",transition:"width 0.4s ease"}}/>
+        </div>
+
+        {/* Tab content */}
+        {tab===0 && <TabChartBasics onNext={()=>setTab(1)} />}
+        {tab===1 && <TabKeyLevels   onNext={()=>setTab(2)} />}
+        {tab===2 && <TabIndicators />}
+
+        {/* Footer */}
+        <div style={{marginTop:"24px",textAlign:"center",fontSize:"0.65rem",color:"#b0a090",letterSpacing:"0.05em"}}>
+          <span style={{fontFamily:"Georgia,serif",fontStyle:"italic"}}>demystified</span> · For educational purposes only
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
