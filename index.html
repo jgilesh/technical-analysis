@@ -573,6 +573,20 @@ function FlagRow({ green, red }) {
 /* ══════════════════════════════════════════
    TAB 1 — CHART BASICS
 ══════════════════════════════════════════ */
+
+// Small candle shape generator for pattern cards
+function PatternCandle({ cx, wickTop, bodyTop, bodyBot, wickBot, bullish }) {
+  const fill = bullish ? "#e8faf3" : "#fff0ee";
+  const stroke = bullish ? GR : RD;
+  return (
+    <g>
+      <line x1={cx} y1={wickTop} x2={cx} y2={bodyTop} stroke={stroke} strokeWidth="2"/>
+      <rect x={cx-9} y={bodyTop} width={18} height={Math.max(3, bodyBot-bodyTop)} fill={fill} stroke={stroke} strokeWidth="2" rx="1.5"/>
+      <line x1={cx} y1={bodyBot} x2={cx} y2={wickBot} stroke={stroke} strokeWidth="2"/>
+    </g>
+  );
+}
+
 function TabChartBasics({ onNext }) {
   return (
     <div className="fu">
@@ -588,14 +602,17 @@ function TabChartBasics({ onNext }) {
         <strong>Technical vs. fundamental analysis:</strong> Fundamental analysis looks at a company's financials, earnings, and business outlook to judge what a stock is worth. Technical analysis ignores all of that and focuses only on the chart — price and volume.
       </InfoBox>
 
-      <SectionLabel label="How to Read a Candlestick" sub="The building block of every chart" />
-      <div style={{background:CA,border:`1px solid ${BD}`,borderRadius:"10px",padding:"16px",marginBottom:"12px"}}>
+      <SectionLabel label="Chart Concepts" sub="Tap each to expand" />
+
+      <ExpandableCard title="How to Read a Candlestick" accent={GR}>
+        <div style={{fontSize:"0.7rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+          color:"#8a7560",marginBottom:"12px"}}>The Four Data Points</div>
         <div style={{display:"flex",gap:"20px",alignItems:"flex-start",flexWrap:"wrap"}}>
-          <svg width="72" height="160" viewBox="0 0 72 160" style={{flexShrink:0}}>
-            {/* Bullish hollow candle */}
+          <svg width="170" height="160" viewBox="0 0 170 160" style={{flexShrink:0}}>
             <line x1="36" y1="8" x2="36" y2="38" stroke={GR} strokeWidth="2.5"/>
             <rect x="20" y="38" width="32" height="58" rx="3" fill="#f0faf5" stroke={GR} strokeWidth="2"/>
             <line x1="36" y1="96" x2="36" y2="132" stroke={GR} strokeWidth="2.5"/>
+            <text x="14" y="148" fontSize="9" fill={GR} fontWeight="700" textAnchor="middle">Bullish</text>
             <text x="58" y="12"  fontSize="8.5" fill="#8a7560">High</text>
             <text x="58" y="44"  fontSize="8.5" fill={GR}>Close</text>
             <text x="58" y="94"  fontSize="8.5" fill={GR}>Open</text>
@@ -604,13 +621,21 @@ function TabChartBasics({ onNext }) {
             <line x1="54" y1="42"  x2="58" y2="42"  stroke={GR} strokeWidth="1"/>
             <line x1="54" y1="92"  x2="58" y2="92"  stroke={GR} strokeWidth="1"/>
             <line x1="54" y1="132" x2="58" y2="132" stroke="#8a7560" strokeWidth="1"/>
+            <line x1="128" y1="8" x2="128" y2="34" stroke={RD} strokeWidth="2.5"/>
+            <rect x="112" y="34" width="32" height="58" rx="3" fill="#fff0ee" stroke={RD} strokeWidth="2"/>
+            <line x1="128" y1="92" x2="128" y2="132" stroke={RD} strokeWidth="2.5"/>
+            <text x="128" y="148" fontSize="9" fill={RD} fontWeight="700" textAnchor="middle">Bearish</text>
+            <text x="148" y="12"  fontSize="8.5" fill="#8a7560" textAnchor="start">High</text>
+            <text x="148" y="38"  fontSize="8.5" fill={RD} textAnchor="start">Open</text>
+            <text x="148" y="96"  fontSize="8.5" fill={RD} textAnchor="start">Close</text>
+            <text x="148" y="136" fontSize="8.5" fill="#8a7560" textAnchor="start">Low</text>
           </svg>
           <div style={{flex:1,minWidth:"160px"}}>
             {[
-              {label:"Body",      color:GR,        desc:"The range between open and close. Hollow = price moved up (bullish). Filled = price moved down (bearish)."},
-              {label:"Upper wick",color:"#8a7560", desc:"How high price reached during the session, above the open/close range."},
-              {label:"Lower wick",color:"#8a7560", desc:"How low price fell during the session, below the open/close range."},
-              {label:"Long wicks",color:GD,        desc:"Long wicks at key levels signal rejection — the market pushed hard but got pushed back."},
+              {label:"Open",  color:GR,        desc:"The price the stock started at when this candle's time period began."},
+              {label:"Close", color:GR,        desc:"The price the stock ended at when this candle's time period finished. For a hollow (bullish) candle, close is above open. For a filled (bearish) candle, close is below open."},
+              {label:"High",  color:"#8a7560", desc:"The highest price the stock reached at any point during the period, marked by the top of the upper wick."},
+              {label:"Low",   color:"#8a7560", desc:"The lowest price the stock reached at any point during the period, marked by the bottom of the lower wick."},
             ].map((row,i)=>(
               <div key={i} style={{display:"flex",gap:"8px",marginBottom:"8px",alignItems:"flex-start"}}>
                 <div style={{width:"8px",height:"8px",borderRadius:"50%",background:row.color,marginTop:"4px",flexShrink:0}}/>
@@ -622,31 +647,173 @@ function TabChartBasics({ onNext }) {
             ))}
           </div>
         </div>
-      </div>
+        <InfoBox accent={GR}>
+          <strong>Reading the color:</strong> A hollow or green candle means buyers were in control during that period — price closed higher than it opened. A filled or red candle means sellers were in control — price closed lower than it opened. Looking at a string of candles in a row tells you who's been winning the recent battle between buyers and sellers.
+        </InfoBox>
 
-      <RuleBox rule="Always use candlestick charts for trade analysis. They give you open, high, low, and close in one glance — more information than any other chart type." />
-
-      <SectionLabel label="Timeframes" sub="What each one shows you" />
-      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"12px"}}>
-        Every timeframe is a different lens on the same stock. A monthly chart and a 15-minute chart are showing you the same price — just at different levels of zoom. Understanding what each lens reveals is what lets you build a complete picture before making any decision.
-      </div>
-      {[
-        {label:"Monthly", tag:"Widest view", color:PU, desc:"One candle = one month of price action. Shows the longest-term trend and the most significant support and resistance levels — zones that have held or broken over years. These levels carry the most weight because the most people are watching them."},
-        {label:"Weekly",  tag:"Big picture", color:BL, desc:"One candle = one week. Confirms the intermediate trend and shows where price has spent meaningful time. Weekly levels are widely watched by institutional traders, making them reliable reference points."},
-        {label:"Daily",   tag:"The standard", color:OR, desc:"One candle = one trading day. The most commonly referenced timeframe for identifying trends, marking key levels, and reading price action. Most chart analysis starts and ends here."},
-        {label:"4H / 1H", tag:"Medium zoom", color:GD, desc:"One candle = 4 hours or 1 hour. Shows how price is moving within the context of the daily trend. Useful for seeing momentum building or fading between daily candles."},
-        {label:"15M and below", tag:"Short zoom", color:RD, desc:"One candle = 15 minutes or less. High detail, high noise. These timeframes capture micro-movements that can look significant but often aren't. More data doesn't always mean more clarity."},
-      ].map((tf,i)=>(
-        <div key={i} style={{background:CA,border:`1px solid ${BD}`,borderLeft:`3px solid ${tf.color}`,
-          borderRadius:"9px",padding:"12px 14px",marginBottom:"7px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"}}>
-            <span style={{fontWeight:"700",fontSize:"0.84rem",color:DK}}>{tf.label}</span>
-            <span style={{fontSize:"0.65rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
-              color:tf.color,background:`${tf.color}18`,borderRadius:"4px",padding:"2px 6px"}}>{tf.tag}</span>
+        <div style={{height:"6px"}}/>
+        <div style={{fontSize:"0.7rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+          color:"#8a7560",marginBottom:"12px"}}>How They Form the Candle</div>
+        <div style={{display:"flex",gap:"20px",alignItems:"flex-start",flexWrap:"wrap",marginBottom:"14px"}}>
+          <svg width="170" height="150" viewBox="0 0 170 150" style={{flexShrink:0}}>
+            <line x1="36" y1="10" x2="36" y2="40" stroke={GR} strokeWidth="2.5"/>
+            <rect x="20" y="40" width="32" height="56" rx="3" fill="#f0faf5" stroke={GR} strokeWidth="2"/>
+            <line x1="36" y1="96" x2="36" y2="124" stroke={GR} strokeWidth="2.5"/>
+            <text x="58" y="22"  fontSize="8" fill="#8a7560">Upper wick</text>
+            <text x="58" y="70"  fontSize="8" fill={GR} fontWeight="700">Body</text>
+            <text x="58" y="112" fontSize="8" fill="#8a7560">Lower wick</text>
+            <text x="14" y="142" fontSize="8.5" fill="#8a7560" textAnchor="middle">Normal</text>
+            <line x1="130" y1="4" x2="130" y2="58" stroke={RD} strokeWidth="2.5"/>
+            <rect x="114" y="58" width="32" height="14" rx="3" fill="#fff0ee" stroke={RD} strokeWidth="2"/>
+            <line x1="130" y1="72" x2="130" y2="132" stroke={RD} strokeWidth="2.5"/>
+            <text x="130" y="142" fontSize="8.5" fill={RD} fontWeight="700" textAnchor="middle">Long wick</text>
+          </svg>
+          <div style={{flex:1,minWidth:"140px",fontSize:"0.75rem",color:"#5a4535",lineHeight:"1.6",paddingTop:"4px"}}>
+            The candle on the left shows a typical body with modest wicks on both ends. The one on the right has a small body but a long upper wick — price pushed up sharply, then got rejected and pulled back down before the period closed.
           </div>
-          <div style={{fontSize:"0.77rem",color:"#5a4535",lineHeight:"1.6"}}>{tf.desc}</div>
         </div>
-      ))}
+        {[
+          {label:"Body",      color:GR,        desc:"The filled or hollow rectangle showing the range between open and close. Hollow = price moved up (bullish). Filled = price moved down (bearish)."},
+          {label:"Upper wick",color:"#8a7560", desc:"The thin line above the body, connecting the close (or open) up to the high. Shows how far price pushed up beyond the body."},
+          {label:"Lower wick",color:"#8a7560", desc:"The thin line below the body, connecting the open (or close) down to the low. Shows how far price pushed down beyond the body."},
+          {label:"Long wicks",color:GD,        desc:"Long wicks at key levels signal rejection — the market pushed hard in one direction but got pushed back before the period closed."},
+        ].map((row,i)=>(
+          <div key={i} style={{display:"flex",gap:"8px",marginBottom:"8px",alignItems:"flex-start"}}>
+            <div style={{width:"8px",height:"8px",borderRadius:"50%",background:row.color,marginTop:"4px",flexShrink:0}}/>
+            <div>
+              <span style={{fontWeight:"700",fontSize:"0.75rem",color:DK}}>{row.label}: </span>
+              <span style={{fontSize:"0.75rem",color:"#5a4535"}}>{row.desc}</span>
+            </div>
+          </div>
+        ))}
+        <RuleBox rule="Always use candlestick charts for trade analysis. They give you open, high, low, and close in one glance — more information than any other chart type." />
+      </ExpandableCard>
+
+      <ExpandableCard title="Candlestick Patterns" accent={OR}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"12px"}}>
+          Beyond a single body and wick, certain candle shapes repeat often enough that traders give them names. Each one tells a quick story about who was in control during that period.
+        </div>
+
+        {/* Doji */}
+        <div style={{display:"flex",gap:"16px",alignItems:"center",background:"#fef9f0",borderRadius:"9px",padding:"12px",marginBottom:"10px"}}>
+          <svg width="60" height="80" viewBox="0 0 60 80" style={{flexShrink:0}}>
+            <line x1="30" y1="6" x2="30" y2="74" stroke={GD} strokeWidth="2"/>
+            <rect x="18" y="38" width="24" height="4" rx="1.5" fill="#fdf6e8" stroke={GD} strokeWidth="2"/>
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Doji</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Open and close are nearly equal, leaving almost no body — just a thin line with wicks on both sides. Signals indecision: neither buyers nor sellers won that period.</div>
+          </div>
+        </div>
+
+        {/* Hammer */}
+        <div style={{display:"flex",gap:"16px",alignItems:"center",background:"#f0faf5",borderRadius:"9px",padding:"12px",marginBottom:"10px"}}>
+          <svg width="60" height="80" viewBox="0 0 60 80" style={{flexShrink:0}}>
+            <line x1="30" y1="6" x2="30" y2="20" stroke={GR} strokeWidth="2.5"/>
+            <rect x="20" y="20" width="20" height="16" rx="2" fill="#e8faf3" stroke={GR} strokeWidth="2"/>
+            <line x1="30" y1="36" x2="30" y2="74" stroke={GR} strokeWidth="2.5"/>
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Hammer</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Small body near the top, long lower wick. Price dropped sharply during the period but buyers stepped in and pushed it back up. Often appears at the bottom of a move, near support.</div>
+          </div>
+        </div>
+
+        {/* Shooting Star */}
+        <div style={{display:"flex",gap:"16px",alignItems:"center",background:"#fff5f5",borderRadius:"9px",padding:"12px",marginBottom:"10px"}}>
+          <svg width="60" height="80" viewBox="0 0 60 80" style={{flexShrink:0}}>
+            <line x1="30" y1="6" x2="30" y2="44" stroke={RD} strokeWidth="2.5"/>
+            <rect x="20" y="44" width="20" height="16" rx="2" fill="#fff0ee" stroke={RD} strokeWidth="2"/>
+            <line x1="30" y1="60" x2="30" y2="74" stroke={RD} strokeWidth="2.5"/>
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Shooting Star</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Small body near the bottom, long upper wick. Price spiked up during the period but sellers pushed it back down. Often appears at the top of a move, near resistance.</div>
+          </div>
+        </div>
+
+        {/* Spinning Top */}
+        <div style={{display:"flex",gap:"16px",alignItems:"center",background:"#f5f0ff",borderRadius:"9px",padding:"12px",marginBottom:"6px"}}>
+          <svg width="60" height="80" viewBox="0 0 60 80" style={{flexShrink:0}}>
+            <line x1="30" y1="6" x2="30" y2="32" stroke={PU} strokeWidth="2.5"/>
+            <rect x="20" y="32" width="20" height="16" rx="2" fill="#f0ebfa" stroke={PU} strokeWidth="2"/>
+            <line x1="30" y1="48" x2="30" y2="74" stroke={PU} strokeWidth="2.5"/>
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Spinning Top</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Small body with wicks of similar length on both sides. Like a doji, it signals indecision — but with more total movement during the period, just no clear winner.</div>
+          </div>
+        </div>
+
+        <RuleBox rule="A single pattern is a clue, not a signal on its own. Always check where it shows up — the same shape means more at a key level than it does in the middle of nowhere." />
+      </ExpandableCard>
+
+      <ExpandableCard title="Chart Types" accent={BL}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"10px"}}>
+          Price data can be displayed in a few different ways. Each one uses the same underlying open, high, low, and close — just presented differently.
+        </div>
+
+        <div style={{display:"flex",gap:"14px",alignItems:"center",background:CA,border:`1px solid ${BD}`,borderRadius:"9px",padding:"12px",marginBottom:"8px"}}>
+          <svg width="80" height="60" viewBox="0 0 80 60" style={{flexShrink:0}}>
+            <polyline points="6,40 20,32 34,38 48,18 62,24 74,8" fill="none" stroke={BL} strokeWidth="2.5"/>
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.8rem",color:DK,marginBottom:"3px"}}>Line Chart</div>
+            <div style={{fontSize:"0.75rem",color:"#5a4535",lineHeight:"1.55"}}>Connects each period's closing price with a single line. Simple and clean, but it leaves out the open, high, and low entirely.</div>
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:"14px",alignItems:"center",background:CA,border:`1px solid ${BD}`,borderRadius:"9px",padding:"12px",marginBottom:"8px"}}>
+          <svg width="80" height="60" viewBox="0 0 80 60" style={{flexShrink:0}}>
+            {[[14,10,40,GR],[34,16,46,RD],[54,6,36,GR]].map(([x,top,bot,col],i)=>(
+              <g key={i}>
+                <line x1={x} y1={top} x2={x} y2={bot} stroke={col} strokeWidth="2"/>
+                <line x1={x-5} y1={top+6} x2={x} y2={top+6} stroke={col} strokeWidth="2"/>
+                <line x1={x} y1={bot-6} x2={x+5} y2={bot-6} stroke={col} strokeWidth="2"/>
+              </g>
+            ))}
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.8rem",color:DK,marginBottom:"3px"}}>Bar Chart (OHLC)</div>
+            <div style={{fontSize:"0.75rem",color:"#5a4535",lineHeight:"1.55"}}>A vertical line for the high-low range, with small tick marks on the left for open and on the right for close. More detail than a line chart, but slower to read at a glance.</div>
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:"14px",alignItems:"center",background:CA,border:`1px solid ${BD}`,borderRadius:"9px",padding:"12px",marginBottom:"6px"}}>
+          <svg width="80" height="60" viewBox="0 0 80 60" style={{flexShrink:0}}>
+            {[[16,8,18,38,46,true],[38,14,26,40,48,false],[60,4,16,30,40,true]].map(([x,wt,bt,bb,wb,bull],i)=>(
+              <PatternCandle key={i} cx={x} wickTop={wt} bodyTop={bt} bodyBot={bb} wickBot={wb} bullish={bull}/>
+            ))}
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.8rem",color:DK,marginBottom:"3px"}}>Candlestick Chart</div>
+            <div style={{fontSize:"0.75rem",color:"#5a4535",lineHeight:"1.55"}}>The same open, high, low, and close as a bar chart, but shown as a body with wicks. This is the format used throughout the rest of this module.</div>
+          </div>
+        </div>
+      </ExpandableCard>
+
+      <ExpandableCard title="Timeframes" accent={PU}>
+        <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"12px"}}>
+          Every timeframe is a different lens on the same stock. A monthly chart and a 15-minute chart are showing you the same price — just at different levels of zoom. Understanding what each lens reveals is what lets you build a complete picture before making any decision.
+        </div>
+        {[
+          {label:"Monthly", tag:"Widest view", color:PU, desc:"One candle = one month of price action. Shows the longest-term trend and the most significant support and resistance levels — zones that have held or broken over years. These levels carry the most weight because the most people are watching them."},
+          {label:"Weekly",  tag:"Big picture", color:BL, desc:"One candle = one week. Confirms the intermediate trend and shows where price has spent meaningful time. Weekly levels are widely watched by institutional traders, making them reliable reference points."},
+          {label:"Daily",   tag:"The standard", color:OR, desc:"One candle = one trading day. The most commonly referenced timeframe for identifying trends, marking key levels, and reading price action. Most chart analysis starts and ends here."},
+          {label:"4H / 1H", tag:"Medium zoom", color:GD, desc:"One candle = 4 hours or 1 hour. Shows how price is moving within the context of the daily trend. Useful for seeing momentum building or fading between daily candles."},
+          {label:"15M and below", tag:"Short zoom", color:RD, desc:"One candle = 15 minutes or less. High detail, high noise. These timeframes capture micro-movements that can look significant but often aren't. More data doesn't always mean more clarity."},
+        ].map((tf,i)=>(
+          <div key={i} style={{background:CA,border:`1px solid ${BD}`,borderLeft:`3px solid ${tf.color}`,
+            borderRadius:"9px",padding:"12px 14px",marginBottom:"7px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"4px"}}>
+              <span style={{fontWeight:"700",fontSize:"0.84rem",color:DK}}>{tf.label}</span>
+              <span style={{fontSize:"0.65rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+                color:tf.color,background:`${tf.color}18`,borderRadius:"4px",padding:"2px 6px"}}>{tf.tag}</span>
+            </div>
+            <div style={{fontSize:"0.77rem",color:"#5a4535",lineHeight:"1.6"}}>{tf.desc}</div>
+          </div>
+        ))}
+      </ExpandableCard>
 
       <NextBtn label="Key Levels" onClick={onNext} />
     </div>
