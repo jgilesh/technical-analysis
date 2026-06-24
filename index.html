@@ -445,6 +445,221 @@ function MACDChart() {
   );
 }
 
+/* ── Isolated Signal Chart (No Confluence) ── */
+function IsolatedSignalChart() {
+  const sup = 78;
+  const candles = [
+    {cx:20, wt:14, bt:22, bb:36, wb:42, bull:false},
+    {cx:40, wt:26, bt:34, bb:46, wb:52, bull:false},
+    {cx:60, wt:38, bt:46, bb:58, wb:64, bull:false},
+    {cx:80, wt:50, bt:58, bb:70, wb:76, bull:false},
+    {cx:100,wt:62, bt:70, bb:80, wb:86, bull:true},   // touches support
+    {cx:120,wt:58, bt:64, bb:76, wb:82, bull:true},
+  ];
+  // RSI still high/overbought, not turning
+  const rsiVals = [78,80,76,74,72,73];
+  const rsiPanelTop=192, rsiPanelBot=258;
+  const scaleRSI = v => rsiPanelTop + ((100-v)/100)*(rsiPanelBot-rsiPanelTop);
+  const rsiPts = rsiVals.map((v,i)=>({x:[20,40,60,80,100,120][i], y:scaleRSI(v)}));
+  const pathD = rsiPts.map((p,i)=>`${i===0?"M":"L"}${p.x},${p.y}`).join(" ");
+  const ob = scaleRSI(70), os = scaleRSI(30), mid = scaleRSI(50);
+  // low volume bars
+  const vols = [13,11,14,10,11,10];
+  const vBase = 154;
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={280} height={300} label="Price bounces at support — but nothing else agrees">
+        <line x1={6} y1={sup} x2={234} y2={sup} stroke={GR} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={sup-3} fontSize="8" fill={GR} fontWeight="700">Support</text>
+        {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+        <text x={6} y={103} fontSize="7.5" fill={GR}>Touches the level — but that's the only signal</text>
+        {/* Divider 1 */}
+        <line x1={6} y1={117} x2={234} y2={117} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={132} fontSize="8" fill="#9a7a55" fontWeight="700">Volume</text>
+        {/* Volume - low, unconvincing */}
+        {vols.map((v,i)=>{
+          const cx=[20,40,60,80,100,120][i];
+          return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v} fill="#9a7a5550" rx="1"/>;
+        })}
+        <text x={6} y={172} fontSize="7.5" fill="#9a7a55">Stays flat — no confirmation</text>
+        {/* Divider 2 */}
+        <line x1={6} y1={186} x2={234} y2={186} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={201} fontSize="8" fill={RD} fontWeight="700">RSI</text>
+        {/* RSI panel with reference lines */}
+        <rect x={6} y={ob} width={228} height={os-ob} fill="#ff000010" rx="2"/>
+        <line x1={6} y1={ob}  x2={234} y2={ob}  stroke={RD} strokeWidth="0.8" strokeDasharray="3 2"/>
+        <line x1={6} y1={mid} x2={234} y2={mid} stroke="#9a7a55" strokeWidth="0.8" strokeDasharray="2 2"/>
+        <line x1={6} y1={os}  x2={234} y2={os}  stroke={GR} strokeWidth="0.8" strokeDasharray="3 2"/>
+        <text x={240} y={ob+3}  fontSize="8" fill={RD}>70</text>
+        <text x={240} y={mid+3} fontSize="8" fill="#9a7a55">50</text>
+        <text x={240} y={os+3}  fontSize="8" fill={GR}>30</text>
+        <path d={pathD} fill="none" stroke={RD} strokeWidth="2"/>
+        <text x={6} y={os+18} fontSize="7.5" fill={RD}>Still overbought — not turning</text>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>Price ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>touched support</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#fff5f5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:RD}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:RD}}>Volume ✕</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>no confirmation</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#fff5f5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:RD}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:RD}}>RSI ✕</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>overbought, not turning</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Confluent Signal Chart (Confluence) ── */
+function ConfluentSignalChart() {
+  const sup = 78;
+  const candles = [
+    {cx:20, wt:14, bt:22, bb:36, wb:42, bull:false},
+    {cx:40, wt:26, bt:34, bb:46, wb:52, bull:false},
+    {cx:60, wt:38, bt:46, bb:58, wb:64, bull:false},
+    {cx:80, wt:50, bt:58, bb:70, wb:76, bull:false},
+    {cx:100,wt:62, bt:70, bb:80, wb:86, bull:true},   // touches support
+    {cx:120,wt:44, bt:52, bb:66, wb:72, bull:true},   // strong bounce candle
+  ];
+  // RSI oversold, turning up
+  const rsiVals = [42,36,30,26,28,38];
+  const rsiPanelTop=192, rsiPanelBot=258;
+  const scaleRSI = v => rsiPanelTop + ((100-v)/100)*(rsiPanelBot-rsiPanelTop);
+  const rsiPts = rsiVals.map((v,i)=>({x:[20,40,60,80,100,120][i], y:scaleRSI(v)}));
+  const pathD = rsiPts.map((p,i)=>`${i===0?"M":"L"}${p.x},${p.y}`).join(" ");
+  const ob = scaleRSI(70), os = scaleRSI(30), mid = scaleRSI(50);
+  // volume spikes on the bounce
+  const vols = [11,10,12,11,26,30];
+  const vBase = 154;
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={280} height={300} label="Price bounces at support — and everything else agrees">
+        <line x1={6} y1={sup} x2={234} y2={sup} stroke={GR} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={sup-3} fontSize="8" fill={GR} fontWeight="700">Support</text>
+        {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={i>=4?11:9}/>))}
+        <text x={6} y={103} fontSize="7.5" fill={GR}>Bounces off the level cleanly</text>
+        {/* Divider 1 */}
+        <line x1={6} y1={117} x2={234} y2={117} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={132} fontSize="8" fill="#9a7a55" fontWeight="700">Volume</text>
+        {/* Volume - spikes on bounce */}
+        {vols.map((v,i)=>{
+          const cx=[20,40,60,80,100,120][i];
+          const isSpike = i>=4;
+          return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v} fill={isSpike?GR:"#9a7a5550"} rx="1"/>;
+        })}
+        <text x={6} y={172} fontSize="7.5" fill={GR}>Rises on the bounce</text>
+        {/* Divider 2 */}
+        <line x1={6} y1={186} x2={234} y2={186} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={201} fontSize="8" fill={GR} fontWeight="700">RSI</text>
+        {/* RSI panel with reference lines */}
+        <rect x={6} y={ob} width={228} height={os-ob} fill="#00ff0010" rx="2"/>
+        <line x1={6} y1={ob}  x2={234} y2={ob}  stroke={RD} strokeWidth="0.8" strokeDasharray="3 2"/>
+        <line x1={6} y1={mid} x2={234} y2={mid} stroke="#9a7a55" strokeWidth="0.8" strokeDasharray="2 2"/>
+        <line x1={6} y1={os}  x2={234} y2={os}  stroke={GR} strokeWidth="0.8" strokeDasharray="3 2"/>
+        <text x={240} y={ob+3}  fontSize="8" fill={RD}>70</text>
+        <text x={240} y={mid+3} fontSize="8" fill="#9a7a55">50</text>
+        <text x={240} y={os+3}  fontSize="8" fill={GR}>30</text>
+        <path d={pathD} fill="none" stroke={GR} strokeWidth="2"/>
+        <circle cx={100} cy={scaleRSI(28)} r="3.5" fill="none" stroke={GR} strokeWidth="1.5"/>
+        <text x={6} y={os+18} fontSize="7.5" fill={GR}>Oversold, turning up</text>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>Price ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>bounced off support</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>Volume ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>confirms the bounce</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>RSI ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>turning up from oversold</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Partial Confluence Chart ── */
+function PartialConfluenceChart() {
+  const sup = 78;
+  const candles = [
+    {cx:20, wt:14, bt:22, bb:36, wb:42, bull:false},
+    {cx:40, wt:26, bt:34, bb:46, wb:52, bull:false},
+    {cx:60, wt:38, bt:46, bb:58, wb:64, bull:false},
+    {cx:80, wt:50, bt:58, bb:70, wb:76, bull:false},
+    {cx:100,wt:62, bt:70, bb:80, wb:86, bull:true},
+    {cx:120,wt:48, bt:56, bb:68, wb:74, bull:true},
+  ];
+  const rsiVals = [44,38,32,28,30,40];
+  const rsiPanelTop=192, rsiPanelBot=258;
+  const scaleRSI = v => rsiPanelTop + ((100-v)/100)*(rsiPanelBot-rsiPanelTop);
+  const rsiPts = rsiVals.map((v,i)=>({x:[20,40,60,80,100,120][i], y:scaleRSI(v)}));
+  const pathD = rsiPts.map((p,i)=>`${i===0?"M":"L"}${p.x},${p.y}`).join(" ");
+  const ob = scaleRSI(70), os = scaleRSI(30), mid = scaleRSI(50);
+  const vols = [11,10,12,11,14,13]; // flat, no spike
+  const vBase = 154;
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={280} height={300} label="Price and RSI agree — but volume doesn't confirm">
+        <line x1={6} y1={sup} x2={234} y2={sup} stroke={GR} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={sup-3} fontSize="8" fill={GR} fontWeight="700">Support</text>
+        {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+        <text x={6} y={103} fontSize="7.5" fill={GR}>Bounces off the level cleanly</text>
+        {/* Divider 1 */}
+        <line x1={6} y1={117} x2={234} y2={117} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={132} fontSize="8" fill="#9a7a55" fontWeight="700">Volume</text>
+        {vols.map((v,i)=>{
+          const cx=[20,40,60,80,100,120][i];
+          return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v} fill="#9a7a5550" rx="1"/>;
+        })}
+        <text x={6} y={172} fontSize="7.5" fill="#9a7a55">Stays flat — no confirmation</text>
+        {/* Divider 2 */}
+        <line x1={6} y1={186} x2={234} y2={186} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={201} fontSize="8" fill={GR} fontWeight="700">RSI</text>
+        {/* RSI panel with reference lines */}
+        <rect x={6} y={ob} width={228} height={os-ob} fill="#00ff0010" rx="2"/>
+        <line x1={6} y1={ob}  x2={234} y2={ob}  stroke={RD} strokeWidth="0.8" strokeDasharray="3 2"/>
+        <line x1={6} y1={mid} x2={234} y2={mid} stroke="#9a7a55" strokeWidth="0.8" strokeDasharray="2 2"/>
+        <line x1={6} y1={os}  x2={234} y2={os}  stroke={GR} strokeWidth="0.8" strokeDasharray="3 2"/>
+        <text x={240} y={ob+3}  fontSize="8" fill={RD}>70</text>
+        <text x={240} y={mid+3} fontSize="8" fill="#9a7a55">50</text>
+        <text x={240} y={os+3}  fontSize="8" fill={GR}>30</text>
+        <path d={pathD} fill="none" stroke={GR} strokeWidth="2"/>
+        <text x={6} y={os+18} fontSize="7.5" fill={GR}>Turning up from oversold</text>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>Price ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>bounced off support</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#fff5f5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:RD}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:RD}}>Volume ✕</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>no confirmation</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>RSI ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>turning up from oversold</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────
    SHARED COMPONENTS
 ───────────────────────────────────────── */
@@ -945,7 +1160,7 @@ function TabKeyLevels({ onNext }) {
 /* ══════════════════════════════════════════
    TAB 3 — INDICATORS
 ══════════════════════════════════════════ */
-function TabIndicators() {
+function TabIndicators({ onNext }) {
   return (
     <div className="fu">
       <DarkCallout eyebrow="Indicators">
@@ -953,9 +1168,6 @@ function TabIndicators() {
       </DarkCallout>
       <InfoBox accent={OR}>
         <strong>How to use them:</strong> Every indicator is a secondary signal, not a primary one. The candles tell you what price is doing. Indicators help you measure how strong or weak that move is. Use them to confirm what you're already seeing, not to find a trade you wouldn't have spotted otherwise.
-      </InfoBox>
-      <InfoBox accent={GR}>
-        <strong>Confluence:</strong> When multiple signals point the same direction at the same time — for example, price bouncing off support while RSI turns up from oversold — that's confluence. The more signals that agree, the more weight the read carries. One signal alone is a clue. Several signals together are a stronger picture.
       </InfoBox>
 
       <SectionLabel label="The Indicators" sub="Tap each to expand" />
@@ -1049,6 +1261,62 @@ function TabIndicators() {
         />
       </ExpandableCard>
 
+      <NextBtn label="Confluence" onClick={onNext} />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   TAB 4 — CONFLUENCE
+══════════════════════════════════════════ */
+function TabConfluence() {
+  return (
+    <div className="fu">
+      <DarkCallout eyebrow="What Confluence Means">
+        One of the most common beginner mistakes is spotting a single signal — price touching support, or RSI dipping low — and jumping straight to a call or put. A professional trader treats one signal as a clue, not a green light. They check whether other signals agree before acting.
+      </DarkCallout>
+      <InfoBox accent={OR}>
+        <strong>How it works:</strong> When multiple signals point the same direction at the same time — price, volume, an indicator, even a higher timeframe — that's confluence. The more signals that agree, the more weight the read carries. Professional traders often check several timeframes and indicators before they ever consider an entry, precisely so they're not reacting to one isolated clue.
+      </InfoBox>
+
+      <SectionLabel label="Examples" sub="Tap each to expand" />
+      <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+        For these examples, we use price at a support level, volume, and RSI as our three signals. These aren't the only signals you can use to check for confluence — they're simply the ones used to illustrate the idea here. In each scenario below, we're looking at whether these three clues agree before deciding what a trade would look like.
+      </div>
+
+      <ExpandableCard title="Example 1: No Confluence" accent={RD}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>One signal, acting in isolation</div>
+        <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+          Price touches support — that's the only thing lining up. Volume stays flat and RSI is still in overbought territory from the prior move. A beginner sees the bounce and jumps in. A professional sees one signal with nothing backing it up.
+        </div>
+        <IsolatedSignalChart />
+        <InfoBox accent={RD}>
+          This is exactly the setup that catches beginners. The chart "looks" like a bounce, but nothing else in the picture supports it. Acting here is a guess dressed up as a trade.
+        </InfoBox>
+      </ExpandableCard>
+
+      <ExpandableCard title="Example 2: Confluence" accent={GR}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Multiple signals, all agreeing</div>
+        <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+          Same support level, same bounce — but now volume rises on the bounce candle, and RSI is turning up from oversold instead of sitting in overbought. Three independent signals, all telling the same story.
+        </div>
+        <ConfluentSignalChart />
+        <InfoBox accent={GR}>
+          This is what a professional is looking for before they even start thinking about an entry. Price, volume, and momentum are all in agreement — the case is stronger because no single signal is doing all the work.
+        </InfoBox>
+      </ExpandableCard>
+
+      <ExpandableCard title="Example 3: Partial Confluence" accent={GD}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Some signals agree, one doesn't</div>
+        <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+          Confluence isn't all-or-nothing. Here, price and RSI agree — the bounce lines up with RSI turning up from oversold — but volume stays flat with no real confirmation. This is a stronger picture than total isolation, but weaker than full agreement.
+        </div>
+        <PartialConfluenceChart />
+        <InfoBox accent={GD}>
+          Mixed signals like this are common. Some traders wait for the missing piece to confirm before acting. Others treat partial confluence as a smaller, more cautious position. There's no universal rule — but recognizing the gap is what matters, rather than treating 2-out-of-3 the same as 3-out-of-3.
+        </InfoBox>
+      </ExpandableCard>
+
     </div>
   );
 }
@@ -1063,6 +1331,7 @@ function App() {
     {icon:"📊", label:"Chart Basics"},
     {icon:"📏", label:"Key Levels"},
     {icon:"📈", label:"Indicators"},
+    {icon:"🔗", label:"Confluence"},
   ];
 
   return (
@@ -1116,7 +1385,8 @@ function App() {
         {/* Tab content */}
         {tab===0 && <TabChartBasics onNext={()=>setTab(1)} />}
         {tab===1 && <TabKeyLevels   onNext={()=>setTab(2)} />}
-        {tab===2 && <TabIndicators />}
+        {tab===2 && <TabIndicators  onNext={()=>setTab(3)} />}
+        {tab===3 && <TabConfluence />}
 
         {/* Footer */}
         <div style={{marginTop:"24px",textAlign:"center",fontSize:"0.65rem",color:"#b0a090",letterSpacing:"0.05em"}}>
