@@ -660,6 +660,118 @@ function PartialConfluenceChart() {
   );
 }
 
+/* ── Timeframe Agreement Chart (higher TF bounce + lower TF bounce, same direction) ── */
+function TimeframeAgreeChart() {
+  // Higher timeframe (1H) - bounce off support, most recent hour is a strong green candle
+  const sup1h = 78;
+  const candles1h = [
+    {cx:20, wt:50, bt:58, bb:70, wb:76, bull:false},
+    {cx:50, wt:60, bt:68, bb:78, wb:84, bull:true},   // touches support
+    {cx:80, wt:48, bt:54, bb:66, wb:70, bull:true},
+    // Most recent hour: strong bullish candle — built from the 4 fifteen-min
+    // candles below, each one closing higher than the last
+    {cx:110,wt:18, bt:24, bb:42, wb:46, bull:true},
+  ];
+  // Lower timeframe (15M) - the 4 candles that make up the most recent 1H candle above.
+  // Open of 1st 15m = open of the 1H candle (42). Close of last 15m = close of 1H candle (24).
+  const candles15m = [
+    {cx:20, wt:38, bt:42, bb:48, wb:50, bull:true},   // opens at 42 (matches 1H open)
+    {cx:46, wt:30, bt:34, bb:42, wb:46, bull:true},
+    {cx:72, wt:24, bt:28, bb:36, wb:40, bull:true},
+    {cx:98, wt:18, bt:22, bb:28, wb:32, bull:true},   // closes at 24-ish, matches 1H close
+  ];
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={280} height={250} label="The 15-min candles are part of the same 1-hour candle">
+        <text x={6} y={14} fontSize="8" fill="#9a7a55" fontWeight="700">1-HOUR (higher timeframe)</text>
+        <line x1={6} y1={sup1h} x2={234} y2={sup1h} stroke={GR} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={sup1h-3} fontSize="7.5" fill={GR}>Support</text>
+        {candles1h.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={20}/>))}
+        <text x={6} y={94} fontSize="7.5" fill={GR}>Bounces off support, trending up</text>
+        {/* Bracket connecting the last 1H candle to the 15m group below */}
+        <line x1={88} y1={50} x2={88} y2={110} stroke="#9a7a5560" strokeWidth="1" strokeDasharray="2 2"/>
+        <line x1={132} y1={50} x2={132} y2={110} stroke="#9a7a5560" strokeWidth="1" strokeDasharray="2 2"/>
+        <text x={110} y={111} fontSize="6.5" fill="#9a7a55" textAnchor="middle">↓ zoomed in below ↓</text>
+
+        {/* Divider */}
+        <line x1={6} y1={118} x2={234} y2={118} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={133} fontSize="8" fill="#9a7a55" fontWeight="700">15-MIN — inside that same hour</text>
+        {candles15m.map((c,i)=>(<Candle key={i} cx={c.cx+76} wickTop={c.wt+138} bodyTop={c.bt+138} bodyBot={c.bb+138} wickBot={c.wb+138} bullish={c.bull} w={14}/>))}
+        <text x={6} y={244} fontSize="7.5" fill={GR}>Each 15-min candle closes higher — confirms the hour</text>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>1-Hour ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>strong green candle off support</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#f0faf5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GR}}>15-Min ✓</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>each candle confirms the move</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Timeframe Disagreement Chart (higher TF downtrend, lower TF bounce) ── */
+function TimeframeDisagreeChart() {
+  // Higher timeframe (1H) - downtrend, with the most recent hour starting to stall
+  const res1h = 30;
+  const candles1h = [
+    {cx:20, wt:24, bt:30, bb:42, wb:48, bull:false},
+    {cx:50, wt:36, bt:42, bb:54, wb:60, bull:false},
+    {cx:80, wt:48, bt:54, bb:66, wb:72, bull:false},
+    // Most recent hour: small-bodied candle, still slightly red — built from the
+    // 4 fifteen-min candles below, which are starting to turn but haven't reversed the hour yet
+    {cx:110,wt:58, bt:62, bb:68, wb:76, bull:false},
+  ];
+  // Lower timeframe (15M) - the 4 candles that make up the most recent 1H candle above.
+  // Open of 1st 15m = open of the 1H candle (62). Close of last 15m = close of 1H candle (68).
+  // Low across all 4 = wick bottom of 1H candle (76). A small bounce forms WITHIN the candle,
+  // but it closes lower than it opened, keeping the hourly candle red overall.
+  const candles15m = [
+    {cx:20, wt:58, bt:62, bb:72, wb:76, bull:false},  // opens at 62 (matches 1H open), pushes to the low
+    {cx:46, wt:68, bt:72, bb:76, wb:78, bull:false},  // makes the low of the hour
+    {cx:72, wt:60, bt:64, bb:74, wb:78, bull:true},   // bounce begins
+    {cx:98, wt:58, bt:62, bb:68, wb:72, bull:true},   // bounce continues, but closes at 68 — still below the 62 open... 
+  ];
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={280} height={250} label="The 15-min candles are part of the same 1-hour candle">
+        <text x={6} y={14} fontSize="8" fill="#9a7a55" fontWeight="700">1-HOUR (higher timeframe)</text>
+        <line x1={6} y1={res1h} x2={234} y2={res1h} stroke={RD} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={res1h-3} fontSize="7.5" fill={RD}>Resistance</text>
+        {candles1h.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={20}/>))}
+        <text x={6} y={94} fontSize="7.5" fill={RD}>Downtrend — but the latest candle is losing steam</text>
+        {/* Bracket connecting the last 1H candle to the 15m group below */}
+        <line x1={88} y1={84} x2={88} y2={110} stroke="#9a7a5560" strokeWidth="1" strokeDasharray="2 2"/>
+        <line x1={132} y1={84} x2={132} y2={110} stroke="#9a7a5560" strokeWidth="1" strokeDasharray="2 2"/>
+        <text x={110} y={111} fontSize="6.5" fill="#9a7a55" textAnchor="middle">↓ zoomed in below ↓</text>
+
+        {/* Divider */}
+        <line x1={6} y1={118} x2={234} y2={118} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={133} fontSize="8" fill="#9a7a55" fontWeight="700">15-MIN — inside that same hour</text>
+        {candles15m.map((c,i)=>(<Candle key={i} cx={c.cx+76} wickTop={c.wt+138} bodyTop={c.bt+138} bodyBot={c.bb+138} wickBot={c.wb+138} bullish={c.bull} w={14}/>))}
+        <text x={6} y={244} fontSize="7.5" fill={GR}>A bounce starts, but the hour still closes red</text>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"10px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#fff5f5",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:RD}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:RD}}>1-Hour ✕</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>still closes red overall</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"6px",background:"#fef9f0",borderRadius:"999px",padding:"5px 12px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:GD}}/>
+          <span style={{fontSize:"0.72rem",fontWeight:"700",color:GD}}>15-Min ~</span>
+          <span style={{fontSize:"0.72rem",color:"#5a4535"}}>shows an early bounce attempt</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────────────────────
    SHARED COMPONENTS
 ───────────────────────────────────────── */
@@ -1315,6 +1427,32 @@ function TabConfluence() {
         <InfoBox accent={GD}>
           Mixed signals like this are common. Some traders wait for the missing piece to confirm before acting. Others treat partial confluence as a smaller, more cautious position. There's no universal rule — but recognizing the gap is what matters, rather than treating 2-out-of-3 the same as 3-out-of-3.
         </InfoBox>
+      </ExpandableCard>
+
+      <ExpandableCard title="Example 4: Confluence Across Timeframes" accent={BL}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Signals can agree or disagree across more than one timeframe</div>
+        <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+          Confluence doesn't only mean checking different signals on a single chart. The same signal can also be checked across different timeframes. If a higher timeframe shows price bouncing off support, and a shorter timeframe you're using for timing shows that same bounce, that's confluence working across timeframes rather than just across indicators.
+        </div>
+
+        <InfoBox accent={BL}>
+          <strong>When timeframes agree:</strong> A bounce off support on a higher timeframe, confirmed by the same bounce on a shorter timeframe, builds a stronger case than either timeframe would on its own.
+        </InfoBox>
+        <TimeframeAgreeChart />
+
+        <InfoBox accent={RD}>
+          <strong>When timeframes disagree:</strong> If a shorter timeframe shows a bounce but the higher timeframe is still in a clear downtrend, that conflict is itself useful information. It doesn't automatically mean don't trade — but it's a flag to weigh before acting, the same way a missing volume or RSI signal would be.
+        </InfoBox>
+        <TimeframeDisagreeChart />
+
+        <div style={{height:"6px"}}/>
+        <div style={{borderTop:`1px solid ${BD}`,paddingTop:"14px",marginTop:"6px"}}>
+          <div style={{fontSize:"0.7rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+            color:"#8a7560",marginBottom:"8px"}}>A Final Note</div>
+          <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65"}}>
+            Which specific timeframes to compare depends on the kind of trade being set up, and that's covered later in The Setup. The principle to take from this module is simpler: a signal looks stronger when more than one timeframe agrees with it, and weaker when they don't.
+          </div>
+        </div>
       </ExpandableCard>
 
     </div>
