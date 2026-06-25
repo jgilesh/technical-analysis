@@ -282,6 +282,44 @@ function TrendLineChart() {
   );
 }
 
+/* ── Fibonacci Retracement Chart ── */
+function FibonacciChart() {
+  // Swing low to swing high, then a pullback that finds buyers at the 61.8% retracement
+  const swingLowY = 130, swingHighY = 20;
+  const range = swingLowY - swingHighY; // 110
+  const fib382 = swingHighY + range * 0.382; // ~62
+  const fib50  = swingHighY + range * 0.5;   // ~75
+  const fib618 = swingHighY + range * 0.618; // ~88
+
+  const candles = [
+    {cx:14, wt:122, bt:126, bb:130, wb:134, bull:true},  // swing low
+    {cx:34, wt:96,  bt:100, bb:110, wb:114, bull:true},
+    {cx:54, wt:70,  bt:74,  bb:84,  wb:88,  bull:true},
+    {cx:74, wt:44,  bt:48,  bb:58,  wb:62,  bull:true},
+    {cx:94, wt:20,  bt:24,  bb:34,  wb:38,  bull:true},   // swing high
+    {cx:114,wt:48,  bt:52,  bb:62,  wb:66,  bull:false},  // pulling back
+    {cx:134,wt:66,  bt:70,  bb:80,  wb:84,  bull:false},
+    {cx:154,wt:80,  bt:84,  bb:92,  wb:96,  bull:false},  // tests 61.8%
+    {cx:174,wt:72,  bt:76,  bb:86,  wb:90,  bull:true},   // bounces
+    {cx:194,wt:54,  bt:58,  bb:68,  wb:72,  bull:true},
+    {cx:214,wt:36,  bt:40,  bb:50,  wb:54,  bull:true},
+  ];
+  return (
+    <ChartFrame width={260} height={150} label="Fibonacci retracement — price bounces near the 61.8% level">
+      {/* Retracement levels — lines stop before the label column so text stays readable */}
+      <line x1={6} y1={fib382} x2={216} y2={fib382} stroke={GD} strokeWidth="1.3" strokeDasharray="3 2"/>
+      <line x1={6} y1={fib50}  x2={216} y2={fib50}  stroke={GD} strokeWidth="1.3" strokeDasharray="3 2"/>
+      <line x1={6} y1={fib618} x2={216} y2={fib618} stroke={GD} strokeWidth="1.5" strokeDasharray="3 2"/>
+      <text x={222} y={fib382+3} fontSize="7.5" fill="#e8ddd0" fontWeight="700">38.2%</text>
+      <text x={222} y={fib50+3}  fontSize="7.5" fill="#e8ddd0" fontWeight="700">50%</text>
+      <text x={222} y={fib618+3} fontSize="7.5" fill="#e8ddd0" fontWeight="700">61.8%</text>
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      <circle cx={154} cy={88} r="4" fill="#1a1108" stroke={GR} strokeWidth="1.5"/>
+      <text x={6} y={144} fontSize="7" fill="#9a7a55">Swing low → swing high → retracement</text>
+    </ChartFrame>
+  );
+}
+
 /* ── Trending vs Ranging Chart (side by side) ── */
 function TrendingVsRangingChart() {
   // Trending: clear higher highs / higher lows
@@ -471,14 +509,17 @@ function MAChart() {
     {cx:198,wt:20, bt:24, bb:36, wb:40, bull:true},
     {cx:220,wt:12, bt:16, bb:28, wb:32, bull:true},
   ];
-  // 50 MA and 200 MA (simplified smooth lines)
+  // 20, 50, and 200 MA (simplified smooth lines) — 20 reacts fastest and sits closest to price
+  const ma20  = [[22,72],[44,74],[66,72],[88,64],[110,54],[132,44],[154,40],[176,38],[198,30],[220,22]];
   const ma50  = [[22,80],[44,78],[66,76],[88,72],[110,66],[132,58],[154,52],[176,48],[198,42],[220,36]];
   const ma200 = [[22,92],[44,90],[66,88],[88,86],[110,84],[132,82],[154,80],[176,78],[198,76],[220,74]];
   const toPath = pts => pts.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ");
   return (
-    <ChartFrame width={258} height={112} label="Moving averages — price bounces off the 50 MA twice">
+    <ChartFrame width={258} height={112} label="Moving averages — 20, 50, and 200, fastest to slowest">
       <path d={toPath(ma200)} fill="none" stroke={PU} strokeWidth="1.5" strokeDasharray="4 2"/>
       <path d={toPath(ma50)}  fill="none" stroke={GD} strokeWidth="1.8"/>
+      <path d={toPath(ma20)}  fill="none" stroke={BL} strokeWidth="1.5" strokeDasharray="2 1"/>
+      <text x={224} y={20}  fontSize="7" fill={BL}>20 MA</text>
       <text x={224} y={33}  fontSize="7" fill={GD}>50 MA</text>
       <text x={224} y={71}  fontSize="7" fill={PU}>200 MA</text>
       {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull}/>))}
@@ -1023,6 +1064,55 @@ function MAMACDChart() {
           <div style={{width:"7px",height:"7px",borderRadius:"50%",background:GR}}/>
           <span style={{fontSize:"0.68rem",fontWeight:"700",color:GR}}>MACD ✓</span>
           <span style={{fontSize:"0.68rem",color:"#5a4535"}}>bullish crossover, same candle</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Example: Fibonacci + Support + Moving Average (triple confluence zone) ── */
+function FibSupportMAChart() {
+  const sup = 86;
+  const candles = [
+    {cx:14, wt:30, bt:34, bb:42, wb:46, bull:true},
+    {cx:34, wt:38, bt:42, bb:50, wb:54, bull:false},
+    {cx:54, wt:48, bt:52, bb:60, wb:64, bull:false},  // pulling back
+    {cx:74, wt:58, bt:62, bb:70, wb:74, bull:false},
+    {cx:94, wt:68, bt:72, bb:80, wb:84, bull:false},  // approaching the zone
+    {cx:114,wt:80, bt:84, bb:90, wb:96, bull:false},  // tests the zone
+    {cx:134,wt:72, bt:76, bb:86, wb:90, bull:true},   // bounces
+    {cx:154,wt:58, bt:62, bb:72, wb:76, bull:true},
+    {cx:174,wt:42, bt:46, bb:56, wb:60, bull:true},
+  ];
+  const fib618Y = 87; // Fibonacci 61.8% level
+  const maLine = [[14,92],[34,91],[54,90],[74,89],[94,88],[114,87],[134,85],[154,80],[174,72]];
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={188} height={130} label="Three tools agreeing on the same narrow zone">
+        <line x1={6} y1={sup} x2={182} y2={sup} stroke={GR} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={sup-4} fontSize="6.5" fill={GR}>Support</text>
+        <line x1={6} y1={fib618Y} x2={182} y2={fib618Y} stroke={GD} strokeWidth="1.3" strokeDasharray="2 2"/>
+        <text x={140} y={fib618Y-4} fontSize="6.5" fill={GD}>Fib 61.8%</text>
+        <path d={maLine.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ")} fill="none" stroke={BL} strokeWidth="1.3" strokeDasharray="1 1"/>
+        <text x={6} y={98} fontSize="6.5" fill={BL}>50 MA</text>
+        {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+        <circle cx={114} cy={90} r="5" fill="#1a1108" stroke={GD} strokeWidth="1.8"/>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#f0faf5",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:GR}}>Support ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>price holds here before</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#fef9f0",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:GD}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:GD}}>Fib 61.8% ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>same narrow zone</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#eef6fb",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:BL}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:BL}}>50 MA ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>also sitting right there</span>
         </div>
       </div>
     </div>
@@ -1981,11 +2071,17 @@ function TabKeyLevels({ onNext }) {
           <strong>Why it matters:</strong> If a stock approaches strong support, it may bounce, favoring a call. If it breaks down through support instead, that favors a put. The level itself is what to watch — which direction it resolves determines the trade.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
-          <strong>How to spot it:</strong> Look for at least two separate touches where price dropped to roughly the same area and turned back up. The more times it holds, the more traders are watching it, which makes the bounce more reliable.
+          <strong>How to spot it:</strong> Look for at least two separate touches where price dropped to roughly the same area and turned back up. Two touches tells you a level might exist; a third reaction is what tells you other traders see it too — that's usually the point it becomes worth acting on.
         </div>
+        <InfoBox accent={GR}>
+          <strong>Wicks vs. bodies:</strong> The wicks mark the zone — how far price reached before getting rejected. The bodies mark where conviction actually lived — where price closed and held. Support is really a band defined by both, not a single exact price.
+        </InfoBox>
+        <InfoBox accent={GD}>
+          <strong>Other ways to spot a level:</strong> Beyond horizontal touches, watch for previous swing highs and lows, round psychological numbers ($50, $100, $200 — these matter because that's where the crowd's emotion clusters), the spot where a big gap started or got filled, and prior earnings reaction zones.
+        </InfoBox>
         <SupportChart />
         <WhatToLookFor
-          bullish={["Level tested 2+ times and held","Volume drops as price nears support","Bullish candle pattern forms at the level"]}
+          bullish={["Level tested 2+ times and held","Volume drops as price nears support","A hammer or bullish engulfing candle forms at the level"]}
           bearish={["Prior breakdown through this level on high volume","Multiple failed bounces recently","Strong downtrend still in place"]}
         />
       </ExpandableCard>
@@ -1998,12 +2094,15 @@ function TabKeyLevels({ onNext }) {
           <strong>Why it matters:</strong> Stocks pressing against resistance may stall or reverse, favoring a put. If price breaks through instead, that favors a call. The level itself is what to watch — which direction it resolves determines the trade.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
-          <strong>How to spot it:</strong> Look for at least two separate touches where price rose to roughly the same area and turned back down. Each rejection adds weight to the level — the third or fourth test is often the one that finally breaks it.
+          <strong>How to spot it:</strong> Look for at least two separate touches where price rose to roughly the same area and turned back down. Two touches tells you a level might exist; a third reaction is what tells you other traders see it too — that's usually the point it becomes worth acting on.
         </div>
+        <InfoBox accent={RD}>
+          <strong>Wicks vs. bodies:</strong> The wicks mark the zone — how far price reached before getting rejected. The bodies mark where conviction actually lived — where price closed and held. Resistance is really a band defined by both, not a single exact price.
+        </InfoBox>
         <ResistanceChart />
         <WhatToLookFor
-          bearish={["Level is well-defined with 2+ touches","Price is consolidating well below resistance","Volume is low near the resistance zone"]}
-          bullish={["Price is already at or above resistance","Bullish candle patterns forming at the level","Resistance tested 4+ times without a break"]}
+          bearish={["Level is well-defined with 2+ touches","Price is consolidating well below resistance","A bearish engulfing, shooting star, or doji forms at the level — buyers running out of breath"]}
+          bullish={["Price is already at or above resistance","A bullish candle pattern forming at the level despite the rejection history","Resistance tested 4+ times without a break"]}
         />
       </ExpandableCard>
 
@@ -2063,6 +2162,28 @@ function TabKeyLevels({ onNext }) {
           bearish={["Lower highs and lower lows in sequence","A descending trend line tested and held 2+ times","Volume increasing as price falls"]}
           other={["The trend line breaking, in either direction, signals the trend may be ending","Choppy price with no clear sequence of highs or lows means there's no real trend line to draw yet"]}
         />
+      </ExpandableCard>
+
+      <ExpandableCard title="Fibonacci Retracement" accent={GD}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A set of horizontal levels drawn between a recent swing low and swing high (or high to low, in a downtrend). The most commonly watched levels are 38.2%, 50%, and 61.8% — these mark how far price could pull back before potentially finding buyers or sellers again.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> After a strong move, price rarely goes straight up or down forever — it pulls back first. Fibonacci levels give you a way to anticipate roughly where that pullback might end, rather than guessing.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How to spot it:</strong> Identify a clear swing low and swing high, then draw the retracement between them. Watch how price behaves as it approaches each level — a bounce at one of these levels carries more weight than a bounce at a random price.
+        </div>
+        <FibonacciChart />
+        <InfoBox accent={GD}>
+          <strong>Best used as confluence, never alone:</strong> A Fibonacci level on its own is a possibility, not a conclusion. It becomes a high-conviction zone when it lines up with something else — a horizontal support or resistance level, or a moving average sitting at roughly the same price. That overlap of multiple tools agreeing on one zone is what makes the level worth acting on.
+        </InfoBox>
+        <WhatToLookFor items={[
+          "Price approaching the 61.8% level after a strong move — often the deepest pullback before a trend resumes",
+          "A Fibonacci level lining up with a horizontal support or resistance level — a stronger zone than either alone",
+          "A Fibonacci level lining up with a moving average — another form of confluence worth weighing",
+          "Price slicing straight through every level without reacting — a sign the retracement framework isn't holding for this move",
+        ]} />
       </ExpandableCard>
 
       <SectionLabel label="The Flip" sub="A broken level often swaps roles" />
@@ -2147,24 +2268,29 @@ function TabIndicators({ onNext }) {
         <WhatToLookFor
           bullish={["RSI rising from oversold (below 30)","RSI crossing above 50 after a pullback","RSI confirming a price breakout (both moving up)"]}
           bearish={["RSI falling from overbought (above 70)","RSI crossing below 50 after a bounce","RSI confirming a price breakdown (both moving down)"]}
-          other={["Price making new highs while RSI fails to make new highs (or the reverse) — a divergence worth noting regardless of direction"]}
         />
+        <InfoBox accent={OR}>
+          <strong>Divergence is the strongest signal:</strong> Price making a new high while RSI fails to make a new high (or the reverse on the downside) is often the earliest warning that a move is losing strength — before price itself shows it. Many traders treat divergence as their single most reliable RSI signal, more reliable than the 70/30 thresholds on their own.
+        </InfoBox>
+        <InfoBox accent={GD}>
+          <strong>70/30 is a starting point, not a hard rule:</strong> Those thresholds work as a default, but in a strongly trending stock it's common to flex to 80/20 instead. A stock in a powerful uptrend can sit above 70 for a long stretch — treating 70 as an automatic exit signal in that case means fighting the trend on every minor pullback.
+        </InfoBox>
       </ExpandableCard>
 
-      <ExpandableCard title="Moving Averages (50 MA / 200 MA)" accent={GD}>
+      <ExpandableCard title="Moving Averages (20 / 50 / 200 MA)" accent={GD}>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
-          <strong>What it is:</strong> A line that plots the average closing price over a set number of periods. The 50 MA averages the last 50 days. The 200 MA averages the last 200 days. Both overlay directly on the price chart.
+          <strong>What it is:</strong> A line that plots the average closing price over a set number of periods. The 20 MA tracks short-term momentum, the 50 MA tracks the intermediate trend, and the 200 MA is the big-picture line — the one most traders check to gauge whether a stock is broadly bullish or bearish. All three overlay directly on the price chart.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
-          <strong>Why it matters:</strong> When price is above its MA, the trend is up. When price is below, the trend is down. MAs also act as dynamic support and resistance levels.
+          <strong>Why it matters:</strong> When price is above its MA, the trend is up. When price is below, the trend is down. Trading above both the 50 and 200 generally means looking for calls; below both means more caution. MAs also act as dynamic support and resistance levels — watching how price behaves when it taps one is itself useful information.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
-          <strong>How it moves:</strong> A 50 MA reacts faster to recent price than a 200 MA, which shifts only slowly over time. When price stays above a moving average for a sustained stretch, that average tends to flatten out and rise, confirming the trend.
+          <strong>How it moves:</strong> The 20 MA reacts fastest to recent price, the 50 MA more slowly, and the 200 MA slowest of all. When price stays above a moving average for a sustained stretch, that average tends to flatten out and rise, confirming the trend.
         </div>
         <MAChart />
         <WhatToLookFor
-          bullish={["Price trading above both 50 MA and 200 MA","50 MA recently crossed above 200 MA (Golden Cross)","Price pulling back to 50 MA and bouncing"]}
-          bearish={["Price trading below both 50 MA and 200 MA","50 MA crossed below 200 MA (Death Cross)","Price failed to reclaim 50 MA after a breakdown"]}
+          bullish={["Price trading above both the 50 and 200 MA — the core bullish threshold","Also above the 20 MA — extra confirmation that recent momentum is positive too, though not required for the bullish read","50 MA recently crossed above 200 MA (Golden Cross)","Price pulling back to the 20 or 50 MA and bouncing"]}
+          bearish={["Price trading below both the 50 and 200 MA — the core bearish threshold","Also below the 20 MA — extra confirmation that recent momentum is negative too, though not required for the bearish read","50 MA crossed below 200 MA (Death Cross)","Price failed to reclaim the 20 or 50 MA after a breakdown"]}
         />
       </ExpandableCard>
 
@@ -2179,6 +2305,9 @@ function TabIndicators({ onNext }) {
           <strong>How it moves:</strong> The MACD line reacts faster to price than the signal line. When the two lines are far apart, momentum is strong. When they converge or cross, momentum is shifting — that crossover is the moment most traders watch for.
         </div>
         <MACDChart />
+        <InfoBox accent={PU}>
+          <strong>Crossover first, histogram second:</strong> The crossover between the MACD line and the signal line is the headline signal worth learning first. The histogram is worth a glance too — it shows whether momentum is expanding or fading — but it's secondary to the crossover itself.
+        </InfoBox>
         <WhatToLookFor
           bullish={["MACD line crossed above signal line","Histogram bars turning positive and growing","Crossover happening above the zero line"]}
           bearish={["MACD line crossed below signal line","Histogram bars turning negative and growing","Crossover happening below the zero line"]}
@@ -2246,6 +2375,20 @@ function TabIndicators({ onNext }) {
         A large candle on surprisingly low volume is worth treating with some caution. It suggests the move might not be backed by much real participation, and could reverse quickly once normal volume returns.
       </InfoBox>
 
+      <SectionLabel label="Using These Together" sub="A few habits worth building early" />
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"4px"}}>
+        With this many indicators in one tab, it's tempting to check all of them, every time. A few things worth keeping in mind as you start applying these:
+      </div>
+      <InfoBox accent={GD}>
+        <strong>Avoid indicator soup:</strong> Stacking six or more indicators onto one chart usually makes it harder to read, not easier. A handful of tools used consistently beats a crowded chart nobody can interpret quickly.
+      </InfoBox>
+      <InfoBox accent={GD}>
+        <strong>Don't rely on one oscillator alone:</strong> RSI by itself, or MACD by itself, is a clue — not a complete picture. The Confluence section coming up next covers this directly.
+      </InfoBox>
+      <InfoBox accent={GD}>
+        <strong>Indicators confirm, they don't predict:</strong> RSI, MACD, and moving averages are lagging by nature — they're built from price that's already happened. Treat them as confirmation for a setup you've already spotted on the chart, not as a standalone reason to enter.
+      </InfoBox>
+
       <NextBtn label="Confluence" onClick={onNext} />
     </div>
   );
@@ -2262,6 +2405,11 @@ function TabConfluence() {
       </DarkCallout>
       <InfoBox accent={OR}>
         <strong>How it works:</strong> When multiple signals point the same direction at the same time — price, volume, an indicator, even a higher timeframe — that's confluence. The more signals that agree, the more weight the read carries. Professional traders often check several timeframes and indicators before they ever consider an entry, precisely so they're not reacting to one isolated clue.
+      </InfoBox>
+      <InfoBox accent={GD}>
+        <strong>A note on Hint:</strong> Demystified also offers Hint, a proprietary tool covered in a separate module. Hint reads the chart according to its own algorithm and marks Buy, Strong Buy, Sell, and Strong Sell on candles — but what it marks depends entirely on the timeframe you're looking at. A one-minute chart and a five-minute chart can show different Hint markings at the same moment, because the price story is different on each.
+        <br/><br/>
+        That's exactly why Hint isn't a signal telling you to buy or sell a specific stock at a specific price — it's a hint about a timeframe, one piece of context to weigh alongside everything else in this module.
       </InfoBox>
 
       <SectionLabel label="Examples" sub="Tap each to expand" />
@@ -2322,14 +2470,14 @@ function TabConfluence() {
         </InfoBox>
       </ExpandableCard>
 
-      <ExpandableCard title="Example 4: Moving Average + MACD" accent={GR}>
-        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Two indicators confirming each other, with no key level involved</div>
+      <ExpandableCard title="Example 4: Fibonacci + Support + Moving Average" accent={GD}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Three different tools, all pointing at the same narrow zone</div>
         <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
-          Price pulls back to the 50 MA and bounces off it, while MACD crosses bullish on that same candle. Neither signal needs a support or resistance line to be meaningful — two indicators agreeing with each other is its own form of confluence.
+          A horizontal support level, the 61.8% Fibonacci retracement, and the 50 MA all happen to sit at roughly the same price. When price pulls back into that zone, it's not one signal suggesting a bounce — it's three independent tools agreeing on the exact same spot.
         </div>
-        <MAMACDChart />
-        <InfoBox accent={GR}>
-          Confluence can come from a level and an indicator agreeing, like the earlier examples, or from two indicators agreeing with each other directly. Both count — what matters is that more than one independent signal is telling the same story.
+        <FibSupportMAChart />
+        <InfoBox accent={GD}>
+          This is what makes a zone "high-conviction" rather than just a guess. Any one of these three on its own would be a reasonable thing to watch. All three lining up in the same narrow area is a meaningfully stronger case — and it's exactly the kind of overlap worth specifically looking for once you know each tool individually.
         </InfoBox>
       </ExpandableCard>
 
@@ -2358,6 +2506,36 @@ function TabConfluence() {
           </div>
         </div>
       </ExpandableCard>
+
+      <SectionLabel label="A Practical Order to Check Things In" sub="One way to sequence a multi-signal read" />
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"10px"}}>
+        This module has covered a lot of ground — chart basics, key levels, indicators, and now how to combine them here. It helps to have a consistent order to work through rather than checking things at random, which makes it easy to miss a step or talk yourself into a read that isn't really there.
+      </div>
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"10px"}}>
+        Start with price itself: where is it relative to a key level? That's the foundation everything else either confirms or contradicts. From there, a reasonable sequence is:
+      </div>
+      <div style={{background:CA,border:`1px solid ${BD}`,borderRadius:"10px",padding:"14px 16px",marginBottom:"10px"}}>
+        {[
+          {n:"1", label:"Price and the level it's at", desc:"The foundation everything else builds on"},
+          {n:"2", label:"Volume", desc:"Does the move have real participation behind it?"},
+          {n:"3", label:"Moving Averages", desc:"What's the broader trend saying?"},
+          {n:"4", label:"RSI", desc:"What's momentum doing right now?"},
+          {n:"5", label:"MACD", desc:"Does the final confirmation line up?"},
+        ].map((step,i)=>(
+          <div key={i} style={{display:"flex",gap:"10px",alignItems:"flex-start",marginBottom: i<4?"10px":"0"}}>
+            <div style={{width:"22px",height:"22px",borderRadius:"50%",background:OR,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              color:"#fff",fontWeight:"700",fontSize:"0.72rem",flexShrink:0}}>{step.n}</div>
+            <div>
+              <div style={{fontWeight:"700",fontSize:"0.8rem",color:DK}}>{step.label}</div>
+              <div style={{fontSize:"0.76rem",color:"#5a4535"}}>{step.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"4px"}}>
+        This isn't a rigid formula — it's a starting habit that keeps you from missing a step while you're still building speed at reading a chart.
+      </div>
 
     </div>
   );
