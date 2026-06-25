@@ -56,6 +56,56 @@ function ChartFrame({ width=320, height=130, children, label }) {
   );
 }
 
+/* ── Shared pattern-overlay helper ──
+   Computes a zigzag line through the actual swing high/low of every candle.
+   This is the single source of truth used by every Chart Patterns diagram —
+   never hand-typed separately, so the line can't drift from the candle data.
+   mode "peak" (default): for patterns built around tops (Head & Shoulders, Double Top).
+     Compares each candle's wick-top to its neighbors — local peak uses the top,
+     local valley uses the bottom, mid-slope points follow the incoming direction.
+   mode "valley": mirrors the same logic using wick-bottom, for patterns built
+     around dips (Inverse Head & Shoulders, Double Bottom). */
+function zigzagPoints(candles, mode = "peak") {
+  if (mode === "valley") {
+    return candles.map((c, i) => {
+      const prev = candles[i - 1];
+      const next = candles[i + 1];
+      let useBottom;
+      if (!prev) useBottom = c.wb < next.wb;
+      else if (!next) useBottom = c.wb > prev.wb;
+      else if (c.wb > prev.wb && c.wb >= next.wb) useBottom = true;
+      else if (c.wb < prev.wb && c.wb <= next.wb) useBottom = false;
+      else useBottom = c.wb > prev.wb;
+      return { cx: c.cx, y: useBottom ? c.wb : c.wt };
+    });
+  }
+  return candles.map((c, i) => {
+    const prev = candles[i - 1];
+    const next = candles[i + 1];
+    let useTop;
+    if (!prev) useTop = c.wt > next.wt;
+    else if (!next) useTop = c.wt < prev.wt;
+    else if (c.wt < prev.wt && c.wt <= next.wt) useTop = true;
+    else if (c.wt > prev.wt && c.wt >= next.wt) useTop = false;
+    else useTop = c.wt < prev.wt;
+    return { cx: c.cx, y: useTop ? c.wt : c.wb };
+  });
+}
+function zigzagPathStr(points) {
+  return points.map(p => `${p.cx},${p.y}`).join(" ");
+}
+// Finds the N most extreme local peaks (or valleys) in a candle array, sorted left-to-right.
+// type "peak" = local maxima on wick-top (lowest y); "valley" = local minima on wick-bottom (highest y).
+function findExtremes(candles, type, count) {
+  const found = candles.filter((c, i) => {
+    if (i === 0 || i === candles.length - 1) return false;
+    if (type === "peak") return c.wt < candles[i-1].wt && c.wt < candles[i+1].wt;
+    return c.wb > candles[i-1].wb && c.wb > candles[i+1].wb;
+  });
+  const sorted = [...found].sort((a, b) => type === "peak" ? a.wt - b.wt : b.wb - a.wb);
+  return sorted.slice(0, count).sort((a, b) => a.cx - b.cx);
+}
+
 /* ── Support Chart ── */
 function SupportChart() {
   // Price falls, bounces off support line twice
@@ -285,6 +335,46 @@ function TrendingVsRangingChart() {
   );
 }
 
+/* ── The Flip: old resistance becomes new support ── */
+function FlipChart() {
+  const level = 70; // the single price level this whole chart pivots around
+  const candles = [
+    {cx:14, wt:90, bt:96, bb:106, wb:112, bull:true},
+    {cx:30, wt:78, bt:84, bb:94, wb:100,  bull:true},   // 1st touch of resistance
+    {cx:46, wt:88, bt:94, bb:104, wb:110, bull:false},  // rejected
+    {cx:62, wt:100,bt:106,bb:114, wb:118, bull:false},
+    {cx:78, wt:84, bt:90, bb:100, wb:106, bull:true},
+    {cx:94, wt:72, bt:78, bb:88, wb:94,   bull:true},   // 2nd touch of resistance
+    {cx:110,wt:84, bt:90, bb:98, wb:104,  bull:false},  // rejected again
+    {cx:126,wt:94, bt:100,bb:108, wb:112, bull:false},
+    {cx:142,wt:80, bt:86, bb:94, wb:100,  bull:true},
+    {cx:158,wt:56, bt:62, bb:72, wb:78,   bull:true},   // breaks through
+    {cx:174,wt:44, bt:50, bb:60, wb:66,   bull:true},
+    {cx:190,wt:62, bt:68, bb:76, wb:82,   bull:false},  // pulls back to retest
+    {cx:206,wt:66, bt:72, bb:80, wb:84,   bull:true},   // holds as new support
+    {cx:222,wt:50, bt:56, bb:64, wb:70,   bull:true},
+    {cx:238,wt:34, bt:40, bb:48, wb:54,   bull:true},
+  ];
+  return (
+    <ChartFrame width={250} height={150} label="The same price level, before and after the break">
+      <line x1={6} y1={level} x2={222} y2={level} stroke={OR} strokeWidth="2" strokeDasharray="5 3"/>
+      <rect x={2} y={56} width={108} height={12} fill="#1a1108"/>
+      <text x={6} y={65} fontSize="7.5" fill={OR} fontWeight="700">Resistance — sellers keep leaning</text>
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+      {/* Rejection markers at the two failed touches */}
+      <circle cx={30} cy={78} r="4" fill="#1a1108" stroke={RD} strokeWidth="1.5"/>
+      <circle cx={94} cy={72} r="4" fill="#1a1108" stroke={RD} strokeWidth="1.5"/>
+      {/* Breakout marker */}
+      <text x={158} y={48} fontSize="7" fill={GR} fontWeight="700" textAnchor="middle">Breaks through</text>
+      {/* Retest marker - same level, now acting as support */}
+      <circle cx={190} cy={level} r="5" fill="#1a1108" stroke={GR} strokeWidth="2"/>
+      <rect x={146} y={level+10} width={104} height={22} fill="#1a1108"/>
+      <text x={150} y={level+22} fontSize="7.5" fill={GR} fontWeight="700">Old resistance,</text>
+      <text x={150} y={level+32} fontSize="7.5" fill={GR} fontWeight="700">now support</text>
+    </ChartFrame>
+  );
+}
+
 /* ── Volume Chart ── */
 function VolumeChart() {
   const candles = [
@@ -445,7 +535,121 @@ function MACDChart() {
   );
 }
 
-/* ── Isolated Signal Chart (No Confluence) ── */
+/* ── VWAP Chart ── */
+function VWAPChart() {
+  // Two sessions, separated by a gap. Each session: VWAP resets, bands start tight,
+  // widen through the middle of the day, then narrow again into the close.
+  const session1 = [
+    {cx:14,  wt:64, bt:70, bb:80, wb:86, bull:false},
+    {cx:32,  wt:58, bt:64, bb:74, wb:80, bull:true},
+    {cx:50,  wt:48, bt:54, bb:64, wb:70, bull:true},
+    {cx:68,  wt:54, bt:60, bb:70, wb:76, bull:false},
+    {cx:86,  wt:62, bt:68, bb:78, wb:84, bull:false},
+    {cx:104, wt:50, bt:56, bb:66, wb:72, bull:true},
+    {cx:122, wt:44, bt:50, bb:58, wb:64, bull:true},
+  ];
+  const session1VWAP  = [[14,76],[32,74],[50,71],[68,70],[86,69],[104,66],[122,62]];
+  const session1Offset = [3, 7, 12, 15, 13, 8, 4];  // tight -> wide -> tight
+
+  const session2 = [
+    {cx:152, wt:42, bt:48, bb:56, wb:62, bull:true},
+    {cx:170, wt:30, bt:36, bb:46, wb:52, bull:true},
+    {cx:188, wt:20, bt:26, bb:36, wb:42, bull:true},
+    {cx:206, wt:28, bt:34, bb:44, wb:50, bull:false},
+    {cx:224, wt:34, bt:40, bb:50, wb:56, bull:false},
+    {cx:242, wt:24, bt:30, bb:38, wb:44, bull:true},
+    {cx:260, wt:18, bt:24, bb:32, wb:38, bull:true},
+  ];
+  const session2VWAP   = [[152,58],[170,54],[188,49],[206,47],[224,46],[242,42],[260,38]];
+  const session2Offset = [3, 8, 13, 16, 14, 7, 3];  // resets tight, repeats the same shape
+
+  const buildBands = (vwapPts, offsets) => ({
+    upper: vwapPts.map(([x,y],i) => [x, y - offsets[i]]),
+    lower: vwapPts.map(([x,y],i) => [x, y + offsets[i]]),
+  });
+  const b1 = buildBands(session1VWAP, session1Offset);
+  const b2 = buildBands(session2VWAP, session2Offset);
+  const toPath = pts => pts.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ");
+
+  return (
+    <ChartFrame width={280} height={120} label="VWAP bands reset each session — tight, then wide, then tight again">
+      {/* Session 1 */}
+      <path d={toPath(b1.upper)} fill="none" stroke={GR} strokeWidth="1.3" strokeDasharray="3 2"/>
+      <path d={toPath(b1.lower)} fill="none" stroke={GR} strokeWidth="1.3" strokeDasharray="3 2"/>
+      <path d={toPath(session1VWAP)} fill="none" stroke={BL} strokeWidth="2.2"/>
+      {session1.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+
+      {/* Session break */}
+      <line x1={137} y1={6} x2={137} y2={106} stroke="#9a7a5550" strokeWidth="1" strokeDasharray="2 2"/>
+      <text x={137} y={116} fontSize="6.5" fill="#9a7a55" textAnchor="middle">session close / new open</text>
+
+      {/* Session 2 */}
+      <path d={toPath(b2.upper)} fill="none" stroke={GR} strokeWidth="1.3" strokeDasharray="3 2"/>
+      <path d={toPath(b2.lower)} fill="none" stroke={GR} strokeWidth="1.3" strokeDasharray="3 2"/>
+      <path d={toPath(session2VWAP)} fill="none" stroke={BL} strokeWidth="2.2"/>
+      {session2.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+
+      {/* Legend */}
+      <rect x={4} y={4} width={120} height={26} fill="#1a1108"/>
+      <text x={6} y={14} fontSize="7" fill={BL} fontWeight="700">— VWAP</text>
+      <text x={6} y={25} fontSize="6.5" fill={GR}>– – Upper / lower bands</text>
+
+      {/* Markers at tight points */}
+      <circle cx={14} cy={76} r="3.5" fill="none" stroke={GD} strokeWidth="1.3"/>
+      <circle cx={122} cy={62} r="3.5" fill="none" stroke={GD} strokeWidth="1.3"/>
+      <circle cx={152} cy={58} r="3.5" fill="none" stroke={GD} strokeWidth="1.3"/>
+      <circle cx={260} cy={38} r="3.5" fill="none" stroke={GD} strokeWidth="1.3"/>
+    </ChartFrame>
+  );
+}
+
+/* ── Buy/Sell Volume: high volume, even split, small candle ── */
+function EvenSplitVolumeChart() {
+  const candles = [
+    {cx:22, wt:46, bt:52, bb:64, wb:68, bull:true},
+    {cx:44, wt:48, bt:54, bb:64, wb:68, bull:false},
+    {cx:66, wt:44, bt:50, bb:62, wb:66, bull:true},
+    {cx:88, wt:46, bt:52, bb:62, wb:66, bull:false},
+    {cx:110,wt:44, bt:50, bb:60, wb:64, bull:true},
+    // The key candle: tiny body, but volume below is the tallest of the set
+    {cx:132,wt:46, bt:50, bb:54, wb:58, bull:true},
+    {cx:154,wt:44, bt:48, bb:58, wb:62, bull:false},
+    {cx:176,wt:42, bt:48, bb:60, wb:64, bull:true},
+  ];
+  // Buy/sell split: the key candle (index 5) has the largest total volume,
+  // but buy and sell are nearly equal — that's why the candle barely moved.
+  const vols = [
+    {buy:7, sell:6},
+    {buy:6, sell:7},
+    {buy:7, sell:5},
+    {buy:6, sell:6},
+    {buy:7, sell:6},
+    {buy:13, sell:12},  // huge total volume, almost evenly split
+    {buy:6,  sell:7},
+    {buy:7,  sell:6},
+  ];
+  const vBase = 104;
+  return (
+    <ChartFrame width={198} height={118} label="High volume, tiny candle — buy and sell are nearly even">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+      <line x1={6} y1={80} x2={192} y2={80} stroke="#3a2a18" strokeWidth="1"/>
+      {vols.map((v,i)=>{
+        const cx=[22,44,66,88,110,132,154,176][i];
+        return (
+          <g key={i}>
+            <rect x={cx-5} y={vBase-v.sell-v.buy} width={10} height={v.sell} fill={RD} rx="1"/>
+            <rect x={cx-5} y={vBase-v.buy} width={10} height={v.buy} fill={GR} rx="1"/>
+          </g>
+        );
+      })}
+      <circle cx={132} cy={vBase-vols[5].buy-vols[5].sell-2} r="4" fill="none" stroke={GD} strokeWidth="1.5"/>
+      <text x={6} y={114} fontSize="7" fill={GR}>■ Buy</text>
+      <text x={36} y={114} fontSize="7" fill={RD}>■ Sell</text>
+    </ChartFrame>
+  );
+}
+
+
 function IsolatedSignalChart() {
   const sup = 78;
   const candles = [
@@ -660,6 +864,171 @@ function PartialConfluenceChart() {
   );
 }
 
+/* ── Example: Resistance + MACD + Trend (bearish confluence) ── */
+function ResistanceMACDTrendChart() {
+  const res = 30;
+  const candles = [
+    {cx:14, wt:62, bt:68, bb:78, wb:84, bull:false},
+    {cx:34, wt:50, bt:56, bb:66, wb:72, bull:true},
+    {cx:54, wt:36, bt:42, bb:52, wb:58, bull:true},   // tests resistance
+    {cx:74, wt:30, bt:36, bb:46, wb:52, bull:false},  // rejected at resistance
+    {cx:94, wt:42, bt:48, bb:58, wb:64, bull:false},
+    {cx:114,wt:56, bt:62, bb:72, wb:78, bull:false},
+    {cx:134,wt:68, bt:74, bb:84, wb:90, bull:false},
+    {cx:154,wt:78, bt:84, bb:94, wb:100, bull:false},
+  ];
+  const macdTop = 116, macdMid = 142, macdBot = 168;
+  const macdLine   = [[14,128],[34,126],[54,123],[74,130],[94,138],[114,148],[134,156],[154,162]];
+  const signalLine = [[14,130],[34,128],[54,126],[74,124],[94,128],[114,138],[134,150],[154,158]];
+  const histH = [-1,-1,1,-3,-4,-5,-3,-2];
+  const toPath = pts => pts.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ");
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={168} height={178} label="Resistance rejection + bearish MACD crossover + downtrend">
+        <line x1={6} y1={res} x2={162} y2={res} stroke={RD} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={res-3} fontSize="7" fill={RD} fontWeight="700">Resistance</text>
+        {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+        <line x1={6} y1={108} x2={162} y2={108} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={120} fontSize="7" fill="#9a7a55" fontWeight="700">MACD</text>
+        <line x1={6} y1={macdMid} x2={162} y2={macdMid} stroke="#9a7a5540" strokeWidth="1" strokeDasharray="2 2"/>
+        {histH.map((h,i)=>{
+          const cx=[14,34,54,74,94,114,134,154][i];
+          const isPos = h>=0;
+          return <rect key={i} x={cx-4} y={isPos?macdMid-h*4:macdMid} width={8} height={Math.abs(h)*4} fill={isPos?GR:RD} rx="1" opacity="0.7"/>;
+        })}
+        <path d={toPath(macdLine)} fill="none" stroke={BL} strokeWidth="1.6"/>
+        <path d={toPath(signalLine)} fill="none" stroke={OR} strokeWidth="1.3" strokeDasharray="3 2"/>
+        <circle cx={74} cy={127} r="3.5" fill="none" stroke={RD} strokeWidth="1.3"/>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#fff5f5",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:RD}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:RD}}>Resistance ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>price rejected</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#fff5f5",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:RD}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:RD}}>MACD ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>bearish crossover</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#fff5f5",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:RD}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:RD}}>Trend ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>already downward</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Example: Breakout + Volume + Moving Average (bullish confluence) ── */
+function BreakoutVolumeMAChart() {
+  const res = 56;
+  const candles = [
+    {cx:14, wt:74, bt:80, bb:90, wb:96, bull:false},
+    {cx:34, wt:64, bt:70, bb:80, wb:86, bull:true},
+    {cx:54, wt:60, bt:66, bb:76, wb:82, bull:false},
+    {cx:74, wt:58, bt:64, bb:74, wb:80, bull:true},   // consolidating near resistance/MA
+    {cx:94, wt:34, bt:40, bb:54, wb:60, bull:true},   // breakout candle
+    {cx:114,wt:20, bt:26, bb:38, wb:44, bull:true},
+    {cx:134,wt:10, bt:16, bb:28, wb:34, bull:true},
+    {cx:154,wt:2,  bt:8,  bb:20, wb:26, bull:true},
+  ];
+  const maLine = [[14,92],[34,90],[54,86],[74,82],[94,76],[114,68],[134,58],[154,48]];
+  const vols = [12,11,10,11,26,20,16,18];
+  const vBase = 168;
+  const toPath = pts => pts.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ");
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={168} height={178} label="Breakout above resistance + volume spike + price clears the 50 MA">
+        <line x1={6} y1={res} x2={162} y2={res} stroke={OR} strokeWidth="1.5" strokeDasharray="3 2"/>
+        <text x={6} y={res-3} fontSize="7" fill={OR} fontWeight="700">Resistance</text>
+        <path d={toPath(maLine)} fill="none" stroke={GD} strokeWidth="1.6"/>
+        <text x={134} y={50} fontSize="6.5" fill={GD}>50 MA</text>
+        {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={i===4?12:9}/>))}
+        <line x1={6} y1={108} x2={162} y2={108} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={120} fontSize="7" fill="#9a7a55" fontWeight="700">Volume</text>
+        {vols.map((v,i)=>{
+          const cx=[14,34,54,74,94,114,134,154][i];
+          const isSpike = i===4;
+          return <rect key={i} x={cx-5} y={vBase-v} width={10} height={v} fill={isSpike?OR:"#9a7a5550"} rx="1"/>;
+        })}
+        <circle cx={94} cy={47} r="4" fill="none" stroke={OR} strokeWidth="1.5"/>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#fef6ee",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:OR}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:OR}}>Breakout ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>closes above resistance</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#fef6ee",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:OR}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:OR}}>Volume ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>spikes on the move</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#fef6ee",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:OR}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:OR}}>50 MA ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>price clears it too</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Example: Moving Average + MACD (two indicators confirming each other) ── */
+function MAMACDChart() {
+  const candles = [
+    {cx:14, wt:70, bt:76, bb:86, wb:92, bull:false},
+    {cx:34, wt:62, bt:68, bb:78, wb:84, bull:true},
+    {cx:54, wt:56, bt:62, bb:72, wb:78, bull:false},  // pulls to MA
+    {cx:74, wt:60, bt:66, bb:76, wb:82, bull:true},   // bounces off MA
+    {cx:94, wt:46, bt:52, bb:62, wb:68, bull:true},
+    {cx:114,wt:32, bt:38, bb:48, wb:54, bull:true},
+    {cx:134,wt:20, bt:26, bb:36, wb:42, bull:true},
+    {cx:154,wt:8,  bt:14, bb:24, wb:30, bull:true},
+  ];
+  const maLine = [[14,88],[34,84],[54,79],[74,74],[94,68],[114,60],[134,50],[154,40]];
+  const macdMid = 142;
+  const macdLine   = [[14,150],[34,148],[54,146],[74,140],[94,130],[114,118],[134,108],[154,100]];
+  const signalLine = [[14,148],[34,147],[54,145],[74,144],[94,138],[114,128],[134,116],[154,106]];
+  const histH = [-1,-1,-1,2,4,5,5,4];
+  const toPath = pts => pts.map((p,i)=>`${i===0?"M":"L"}${p[0]},${p[1]}`).join(" ");
+  return (
+    <div style={{marginBottom:"12px",marginTop:"8px"}}>
+      <ChartFrame width={168} height={178} label="Price bounces off the 50 MA as MACD crosses bullish">
+        <path d={toPath(maLine)} fill="none" stroke={GD} strokeWidth="1.6"/>
+        <text x={6} y={86} fontSize="6.5" fill={GD}>50 MA</text>
+        {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+        <circle cx={74} cy={73} r="4" fill="none" stroke={GR} strokeWidth="1.5"/>
+        <line x1={6} y1={108} x2={162} y2={108} stroke="#3a2a18" strokeWidth="1"/>
+        <text x={6} y={120} fontSize="7" fill="#9a7a55" fontWeight="700">MACD</text>
+        <line x1={6} y1={macdMid} x2={162} y2={macdMid} stroke="#9a7a5540" strokeWidth="1" strokeDasharray="2 2"/>
+        {histH.map((h,i)=>{
+          const cx=[14,34,54,74,94,114,134,154][i];
+          const isPos = h>=0;
+          return <rect key={i} x={cx-4} y={isPos?macdMid-h*4:macdMid} width={8} height={Math.abs(h)*4} fill={isPos?GR:RD} rx="1" opacity="0.7"/>;
+        })}
+        <path d={toPath(macdLine)} fill="none" stroke={BL} strokeWidth="1.6"/>
+        <path d={toPath(signalLine)} fill="none" stroke={OR} strokeWidth="1.3" strokeDasharray="3 2"/>
+        <circle cx={74} cy={142} r="3.5" fill="none" stroke={GR} strokeWidth="1.3"/>
+      </ChartFrame>
+      <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#f0faf5",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:GR}}>50 MA ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>price bounces off it</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"5px",background:"#f0faf5",borderRadius:"999px",padding:"4px 10px"}}>
+          <div style={{width:"7px",height:"7px",borderRadius:"50%",background:GR}}/>
+          <span style={{fontSize:"0.68rem",fontWeight:"700",color:GR}}>MACD ✓</span>
+          <span style={{fontSize:"0.68rem",color:"#5a4535"}}>bullish crossover, same candle</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Timeframe Agreement Chart (higher TF bounce + lower TF bounce, same direction) ── */
 function TimeframeAgreeChart() {
   // Higher timeframe (1H) - bounce off support, most recent hour is a strong green candle
@@ -769,6 +1138,384 @@ function TimeframeDisagreeChart() {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   CHART PATTERN DIAGRAMS
+   Candles + bold overlay line tracing the pattern shape
+══════════════════════════════════════════ */
+
+function PatternLabel({ text, color }) {
+  return (
+    <text x={140} y={16} fontSize="9" fill={color} fontWeight="700" textAnchor="middle">{text}</text>
+  );
+}
+
+/* ── Head & Shoulders ── */
+function HeadShouldersChart() {
+  const candles = [
+    {cx:14, wt:90, bt:96, bb:106, wb:112, bull:true},
+    {cx:30, wt:64, bt:70, bb:82, wb:88,   bull:true},   // left shoulder peak
+    {cx:46, wt:74, bt:80, bb:90, wb:96,   bull:false},
+    {cx:62, wt:84, bt:90, bb:100, wb:106, bull:false},  // dip after left shoulder
+    {cx:78, wt:62, bt:68, bb:78, wb:84,   bull:true},
+    {cx:94, wt:38, bt:44, bb:54, wb:60,   bull:true},
+    {cx:110,wt:18, bt:24, bb:34, wb:40,   bull:true},   // head peak (highest of all)
+    {cx:126,wt:40, bt:46, bb:56, wb:62,   bull:false},
+    {cx:142,wt:64, bt:70, bb:80, wb:86,   bull:false},  // dip after head
+    {cx:158,wt:80, bt:86, bb:96, wb:102,  bull:true},
+    {cx:174,wt:60, bt:66, bb:76, wb:82,   bull:true},   // right shoulder peak
+    {cx:190,wt:78, bt:84, bb:94, wb:100,  bull:false},
+    {cx:206,wt:92, bt:98, bb:108, wb:114, bull:false},
+    {cx:222,wt:106,bt:112,bb:122,wb:128,  bull:false},  // breaks below neckline
+  ];
+  const linePts = zigzagPathStr(zigzagPoints(candles));
+  const topThree = findExtremes(candles, "peak", 3);
+  return (
+    <ChartFrame width={250} height={150} label="Head & Shoulders — three peaks, the middle one highest">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+      <line x1={6} y1={92} x2={224} y2={98} stroke={RD} strokeWidth="2" strokeDasharray="5 3"/>
+      <rect x={2} y={78} width={50} height={12} fill="#1a1108"/>
+      <text x={6} y={87} fontSize="7.5" fill={RD} fontWeight="700">Neckline</text>
+      <polyline points={linePts} fill="none" stroke={GD} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+      {topThree.map((p,i)=>(
+        <circle key={i} cx={p.cx} cy={p.wt} r="4" fill="#1a1108" stroke={GD} strokeWidth="1.5"/>
+      ))}
+      <text x={244} y={142} fontSize="7.5" fill={RD} textAnchor="end">Breaks below</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Inverse Head & Shoulders ── */
+function InverseHeadShouldersChart() {
+  const candles = [
+    {cx:14, wt:14, bt:20, bb:30, wb:36,  bull:false},
+    {cx:30, wt:38, bt:44, bb:56, wb:62,  bull:false},  // left shoulder trough
+    {cx:46, wt:30, bt:36, bb:46, wb:52,  bull:true},
+    {cx:62, wt:18, bt:24, bb:34, wb:40,  bull:true},   // bounce after left shoulder
+    {cx:78, wt:40, bt:46, bb:58, wb:64,  bull:false},
+    {cx:94, wt:64, bt:70, bb:82, wb:88,  bull:false},
+    {cx:110,wt:90, bt:96, bb:106, wb:112, bull:false}, // head trough (lowest of all)
+    {cx:126,wt:68, bt:74, bb:84, wb:90,  bull:true},
+    {cx:142,wt:44, bt:50, bb:60, wb:66,  bull:true},   // bounce after head
+    {cx:158,wt:28, bt:34, bb:44, wb:50,  bull:false},
+    {cx:174,wt:48, bt:54, bb:64, wb:70,  bull:false},  // right shoulder trough
+    {cx:190,wt:30, bt:36, bb:46, wb:52,  bull:true},
+    {cx:206,wt:16, bt:22, bb:32, wb:38,  bull:true},
+    {cx:222,wt:4,  bt:10, bb:18, wb:24,  bull:true},   // breaks above neckline
+  ];
+  // Mirror logic for an inverse pattern: line touches wick-bottom at troughs, wick-top at peaks.
+  const linePts = zigzagPathStr(zigzagPoints(candles, "valley"));
+  const topThree = findExtremes(candles, "valley", 3);
+  return (
+    <ChartFrame width={250} height={150} label="Inverse Head & Shoulders — three dips, the middle deepest">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+      <line x1={6} y1={62} x2={224} y2={56} stroke={GR} strokeWidth="2" strokeDasharray="5 3"/>
+      <rect x={2} y={4} width={56} height={12} fill="#1a1108"/>
+      <text x={6} y={13} fontSize="7.5" fill={GR} fontWeight="700">Neckline</text>
+      <polyline points={linePts} fill="none" stroke={GD} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+      {topThree.map((p,i)=>(
+        <circle key={i} cx={p.cx} cy={p.wb} r="4" fill="#1a1108" stroke={GD} strokeWidth="1.5"/>
+      ))}
+      <text x={244} y={14} fontSize="7.5" fill={GR} textAnchor="end">Breaks above</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Double Top ── */
+function DoubleTopChart() {
+  const candles = [
+    {cx:14, wt:80, bt:86, bb:96, wb:102, bull:true},
+    {cx:34, wt:50, bt:56, bb:66, wb:72,  bull:true},
+    {cx:54, wt:24, bt:30, bb:40, wb:46,  bull:true},   // 1st top
+    {cx:74, wt:40, bt:46, bb:58, wb:64,  bull:false},
+    {cx:94, wt:62, bt:68, bb:80, wb:86,  bull:false},
+    {cx:114,wt:78, bt:84, bb:94, wb:100, bull:false},
+    {cx:134,wt:56, bt:62, bb:74, wb:80,  bull:true},
+    {cx:154,wt:30, bt:36, bb:46, wb:52,  bull:true},
+    {cx:174,wt:24, bt:30, bb:40, wb:46,  bull:true},   // 2nd top
+    {cx:194,wt:44, bt:50, bb:62, wb:68,  bull:false},
+    {cx:214,wt:64, bt:70, bb:82, wb:88,  bull:false},
+    {cx:234,wt:80, bt:86, bb:96, wb:102, bull:false},
+    {cx:254,wt:94, bt:100,bb:110,wb:116, bull:false},
+  ];
+  const linePts = zigzagPathStr(zigzagPoints(candles));
+  const tops = findExtremes(candles, "peak", 2);
+  return (
+    <ChartFrame width={250} height={140} label="Double Top — resistance tested twice, can't break through">
+      <line x1={6} y1={28} x2={224} y2={28} stroke={RD} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={6} y={22} fontSize="7.5" fill={RD} fontWeight="700">Resistance</text>
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+      <polyline points={linePts} fill="none" stroke={GD} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+      {tops.map((p,i)=>(
+        <circle key={i} cx={p.cx} cy={p.wt} r="4" fill="#1a1108" stroke={GD} strokeWidth="1.5"/>
+      ))}
+      <text x={244} y={132} fontSize="7" fill={RD} textAnchor="end">Breaks support</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Double Bottom ── */
+function DoubleBottomChart() {
+  const candles = [
+    {cx:14, wt:30, bt:36, bb:46, wb:52,  bull:false},
+    {cx:34, wt:56, bt:62, bb:72, wb:78,  bull:false},
+    {cx:54, wt:82, bt:88, bb:98, wb:104, bull:false},  // 1st bottom
+    {cx:74, wt:64, bt:70, bb:82, wb:88,  bull:true},
+    {cx:94, wt:42, bt:48, bb:60, wb:66,  bull:true},
+    {cx:114,wt:26, bt:32, bb:42, wb:48,  bull:true},
+    {cx:134,wt:46, bt:52, bb:64, wb:70,  bull:false},
+    {cx:154,wt:70, bt:76, bb:86, wb:92,  bull:false},
+    {cx:174,wt:82, bt:88, bb:98, wb:104, bull:false},  // 2nd bottom
+    {cx:194,wt:60, bt:66, bb:78, wb:84,  bull:true},
+    {cx:214,wt:38, bt:44, bb:56, wb:62,  bull:true},
+    {cx:234,wt:22, bt:28, bb:38, wb:44,  bull:true},
+    {cx:254,wt:8,  bt:14, bb:24, wb:30,  bull:true},
+  ];
+  const linePts = zigzagPathStr(zigzagPoints(candles, "valley"));
+  const bottoms = findExtremes(candles, "valley", 2);
+  return (
+    <ChartFrame width={250} height={140} label="Double Bottom — support tested twice, holds both times">
+      <line x1={6} y1={86} x2={224} y2={86} stroke={GR} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={6} y={98} fontSize="7.5" fill={GR} fontWeight="700">Support</text>
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={9}/>))}
+      <polyline points={linePts} fill="none" stroke={GD} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+      {bottoms.map((p,i)=>(
+        <circle key={i} cx={p.cx} cy={p.wb} r="4" fill="#1a1108" stroke={GD} strokeWidth="1.5"/>
+      ))}
+      <text x={208} y={16} fontSize="7" fill={GR}>Breaks resistance</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Cup & Handle ── */
+function CupHandleChart() {
+  const candles = [
+    {cx:14, wt:20, bt:26, bb:36, wb:42, bull:false},
+    {cx:30, wt:40, bt:46, bb:58, wb:64, bull:false},
+    {cx:46, wt:58, bt:64, bb:76, wb:82, bull:false},  // descending into cup
+    {cx:62, wt:74, bt:80, bb:90, wb:96, bull:false},
+    {cx:78, wt:86, bt:92, bb:100,wb:106, bull:true},  // cup bottom
+    {cx:94, wt:84, bt:90, bb:98, wb:104, bull:true},
+    {cx:110,wt:70, bt:76, bb:86, wb:92, bull:true},   // rising out of cup
+    {cx:126,wt:50, bt:56, bb:66, wb:72, bull:true},
+    {cx:142,wt:30, bt:36, bb:46, wb:52, bull:true},
+    {cx:158,wt:20, bt:26, bb:36, wb:40, bull:true},   // back to rim
+    {cx:174,wt:26, bt:32, bb:42, wb:48, bull:false},  // small handle dip
+    {cx:190,wt:34, bt:40, bb:48, wb:54, bull:false},
+    {cx:206,wt:26, bt:32, bb:40, wb:46, bull:true},   // handle recovers
+    {cx:222,wt:14, bt:20, bb:30, wb:34, bull:true},   // breaks out
+    {cx:238,wt:4,  bt:10, bb:20, wb:24, bull:true},
+    {cx:254,wt:0,  bt:4,  bb:14, wb:18, bull:true},
+  ];
+  return (
+    <ChartFrame width={280} height={130} label="Cup & Handle — a recovery, then a small pullback before continuing">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      {/* Overlay: cup curve + handle */}
+      <path d="M14,30 Q86,108 158,28" fill="none" stroke={GD} strokeWidth="2.5"/>
+      <polyline points="158,28 174,30 190,38 206,28" fill="none" stroke={GD} strokeWidth="2.5" strokeLinejoin="round"/>
+      <line x1={6} y1={22} x2={166} y2={22} stroke={GD} strokeWidth="1" strokeDasharray="3 2"/>
+      <text x={6} y={16} fontSize="7" fill={GD}>Rim level</text>
+      <text x={172} y={18} fontSize="7" fill={GD} fontWeight="700">Handle</text>
+      <text x={206} y={124} fontSize="7" fill={GR}>Breaks out</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Ascending Triangle ── */
+function AscendingTriangleChart() {
+  const candles = [
+    {cx:14, wt:70, bt:76, bb:88, wb:94, bull:true},
+    {cx:30, wt:40, bt:46, bb:56, wb:62, bull:true},   // up to resistance
+    {cx:46, wt:46, bt:52, bb:64, wb:70, bull:false},  // back down (HL1)
+    {cx:62, wt:58, bt:64, bb:76, wb:82, bull:false},
+    {cx:78, wt:48, bt:54, bb:64, wb:70, bull:true},
+    {cx:94, wt:38, bt:44, bb:54, wb:60, bull:true},   // up to resistance again
+    {cx:110,wt:46, bt:52, bb:62, wb:68, bull:false},  // back down (HL2, higher than HL1)
+    {cx:126,wt:52, bt:58, bb:68, wb:74, bull:false},
+    {cx:142,wt:42, bt:48, bb:58, wb:64, bull:true},
+    {cx:158,wt:38, bt:44, bb:54, wb:60, bull:true},   // testing resistance again
+    {cx:174,wt:44, bt:50, bb:60, wb:66, bull:false},  // HL3, higher still
+    {cx:190,wt:36, bt:42, bb:52, wb:58, bull:true},
+    {cx:206,wt:26, bt:32, bb:42, wb:48, bull:true},   // pressing resistance
+    {cx:222,wt:16, bt:22, bb:32, wb:38, bull:true},   // breaks out
+    {cx:238,wt:4,  bt:10, bb:20, wb:26, bull:true},
+    {cx:254,wt:0,  bt:6,  bb:14, wb:18, bull:true},
+  ];
+  return (
+    <ChartFrame width={280} height={140} label="Ascending Triangle — higher lows pressing on flat resistance">
+      <line x1={6} y1={40} x2={254} y2={40} stroke={RD} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={6} y={34} fontSize="7.5" fill={RD} fontWeight="700">Resistance</text>
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      {/* Overlay: rising diagonal under the higher lows */}
+      <line x1={20} y1={88} x2={246} y2={18} stroke={GD} strokeWidth="2.5" strokeDasharray="5 3"/>
+      {[[46,67],[110,71],[174,63]].map(([x,y],i)=>(
+        <circle key={i} cx={x} cy={y} r="4" fill="none" stroke={GD} strokeWidth="1.5"/>
+      ))}
+      <text x={200} y={12} fontSize="7" fill={GR}>Breaks out</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Descending Triangle ── */
+function DescendingTriangleChart() {
+  const candles = [
+    {cx:14, wt:20, bt:26, bb:38, wb:44, bull:false},
+    {cx:30, wt:50, bt:56, bb:66, wb:72, bull:false},  // down to support
+    {cx:46, wt:44, bt:50, bb:60, wb:66, bull:true},   // back up (LH1)
+    {cx:62, wt:32, bt:38, bb:48, wb:54, bull:true},
+    {cx:78, wt:42, bt:48, bb:58, wb:64, bull:false},
+    {cx:94, wt:52, bt:58, bb:68, wb:74, bull:false},  // down to support again
+    {cx:110,wt:46, bt:52, bb:62, wb:68, bull:true},   // LH2, lower than LH1
+    {cx:126,wt:40, bt:46, bb:56, wb:62, bull:true},
+    {cx:142,wt:50, bt:56, bb:66, wb:72, bull:false},
+    {cx:158,wt:54, bt:60, bb:70, wb:76, bull:false},  // testing support again
+    {cx:174,wt:48, bt:54, bb:64, wb:70, bull:true},   // LH3, lower still
+    {cx:190,wt:56, bt:62, bb:72, wb:78, bull:false},
+    {cx:206,wt:66, bt:72, bb:82, wb:88, bull:false},  // pressing support
+    {cx:222,wt:76, bt:82, bb:92, wb:98, bull:false},  // breaks down
+    {cx:238,wt:88, bt:94, bb:104,wb:110, bull:false},
+    {cx:254,wt:94, bt:100,bb:108,wb:114, bull:false},
+  ];
+  return (
+    <ChartFrame width={280} height={140} label="Descending Triangle — lower highs pressing on flat support">
+      <line x1={6} y1={66} x2={254} y2={66} stroke={GR} strokeWidth="1.5" strokeDasharray="4 3"/>
+      <text x={6} y={78} fontSize="7.5" fill={GR} fontWeight="700">Support</text>
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      {/* Overlay: falling diagonal over the lower highs */}
+      <line x1={20} y1={18} x2={246} y2={92} stroke={GD} strokeWidth="2.5" strokeDasharray="5 3"/>
+      {[[46,42],[110,44],[174,46]].map(([x,y],i)=>(
+        <circle key={i} cx={x} cy={y} r="4" fill="none" stroke={GD} strokeWidth="1.5"/>
+      ))}
+      <text x={200} y={132} fontSize="7" fill={RD}>Breaks down</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Rising Wedge ── */
+function RisingWedgeChart() {
+  const candles = [
+    {cx:14, wt:90, bt:96, bb:106, wb:112, bull:true},
+    {cx:30, wt:74, bt:80, bb:92, wb:98, bull:true},
+    {cx:46, wt:80, bt:86, bb:96, wb:102, bull:false},  // HL1
+    {cx:62, wt:60, bt:66, bb:78, wb:84, bull:true},
+    {cx:78, wt:48, bt:54, bb:64, wb:70, bull:true},
+    {cx:94, wt:56, bt:62, bb:72, wb:78, bull:false},   // HL2 - both lines converging
+    {cx:110,wt:40, bt:46, bb:56, wb:62, bull:true},
+    {cx:126,wt:30, bt:36, bb:46, wb:52, bull:true},
+    {cx:142,wt:38, bt:44, bb:52, wb:58, bull:false},   // HL3, narrowing range
+    {cx:158,wt:28, bt:34, bb:42, wb:48, bull:true},
+    {cx:174,wt:24, bt:30, bb:38, wb:44, bull:true},
+    {cx:190,wt:30, bt:36, bb:44, wb:50, bull:false},   // breaks down despite rising channel
+    {cx:206,wt:46, bt:52, bb:62, wb:68, bull:false},
+    {cx:222,wt:64, bt:70, bb:80, wb:86, bull:false},
+    {cx:238,wt:82, bt:88, bb:98, wb:104, bull:false},
+    {cx:254,wt:96, bt:102,bb:112,wb:118, bull:false},
+  ];
+  return (
+    <ChartFrame width={280} height={140} label="Rising Wedge — both lines rise, but narrow together">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      {/* Overlay: two converging rising lines */}
+      <line x1={14} y1={108} x2={246} y2={20} stroke={GD} strokeWidth="2.5" strokeDasharray="5 3"/>
+      <line x1={14} y1={84} x2={246} y2={24} stroke={GD} strokeWidth="2.5" strokeDasharray="5 3"/>
+      <text x={170} y={14} fontSize="7" fill={GD} fontWeight="700">Narrowing range</text>
+      <text x={230} y={132} fontSize="7" fill={RD}>Often breaks down</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Falling Wedge ── */
+function FallingWedgeChart() {
+  const candles = [
+    {cx:14, wt:10, bt:16, bb:26, wb:32, bull:false},
+    {cx:30, wt:26, bt:32, bb:44, wb:50, bull:false},
+    {cx:46, wt:20, bt:26, bb:36, wb:42, bull:true},   // LH1
+    {cx:62, wt:40, bt:46, bb:58, wb:64, bull:false},
+    {cx:78, wt:52, bt:58, bb:68, wb:74, bull:false},
+    {cx:94, wt:44, bt:50, bb:60, wb:66, bull:true},   // LH2 - converging
+    {cx:110,wt:60, bt:66, bb:76, wb:82, bull:false},
+    {cx:126,wt:70, bt:76, bb:86, wb:92, bull:false},
+    {cx:142,wt:62, bt:68, bb:76, wb:82, bull:true},   // LH3, narrowing range
+    {cx:158,wt:72, bt:78, bb:86, wb:92, bull:false},
+    {cx:174,wt:76, bt:82, bb:90, wb:96, bull:false},
+    {cx:190,wt:70, bt:76, bb:84, wb:90, bull:true},   // breaks up despite falling channel
+    {cx:206,wt:54, bt:60, bb:70, wb:76, bull:true},
+    {cx:222,wt:36, bt:42, bb:52, wb:58, bull:true},
+    {cx:238,wt:18, bt:24, bb:34, wb:40, bull:true},
+    {cx:254,wt:4,  bt:10, bb:20, wb:26, bull:true},
+  ];
+  return (
+    <ChartFrame width={280} height={140} label="Falling Wedge — both lines fall, but narrow together">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      {/* Overlay: two converging falling lines */}
+      <line x1={14} y1={26} x2={246} y2={84} stroke={GD} strokeWidth="2.5" strokeDasharray="5 3"/>
+      <line x1={14} y1={48} x2={246} y2={88} stroke={GD} strokeWidth="2.5" strokeDasharray="5 3"/>
+      <text x={170} y={132} fontSize="7" fill={GD} fontWeight="700">Narrowing range</text>
+      <text x={222} y={14} fontSize="7" fill={GR}>Often breaks up</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Bull Flag ── */
+function BullFlagChart() {
+  const candles = [
+    {cx:14, wt:96, bt:100,bb:108, wb:112, bull:true},
+    {cx:30, wt:76, bt:82, bb:92, wb:98, bull:true},   // pole - sharp move up
+    {cx:46, wt:50, bt:56, bb:66, wb:72, bull:true},
+    {cx:62, wt:24, bt:30, bb:40, wb:46, bull:true},
+    {cx:78, wt:6,  bt:12, bb:22, wb:28, bull:true},   // top of pole
+    {cx:94, wt:14, bt:20, bb:30, wb:36, bull:false},  // flag - mild pullback channel
+    {cx:110,wt:20, bt:26, bb:36, wb:42, bull:false},
+    {cx:126,wt:26, bt:32, bb:42, wb:48, bull:true},
+    {cx:142,wt:22, bt:28, bb:38, wb:44, bull:false},
+    {cx:158,wt:28, bt:34, bb:44, wb:50, bull:true},
+    {cx:174,wt:18, bt:24, bb:34, wb:40, bull:true},   // breaks out of flag
+    {cx:190,wt:2,  bt:8,  bb:18, wb:24, bull:true},
+    {cx:206,wt:0,  bt:4,  bb:14, wb:18, bull:true},
+  ];
+  return (
+    <ChartFrame width={250} height={130} label="Bull Flag — sharp move, brief pause, then continues up">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      {/* Overlay: pole line + flag channel */}
+      <line x1={14} y1={106} x2={78} y2={8} stroke={GD} strokeWidth="2.5"/>
+      <text x={20} y={70} fontSize="7" fill={GD} fontWeight="700" transform="rotate(-70,20,70)">Pole</text>
+      <line x1={86} y1={12} x2={182} y2={36} stroke={GD} strokeWidth="2" strokeDasharray="4 2"/>
+      <line x1={86} y1={26} x2={182} y2={50} stroke={GD} strokeWidth="2" strokeDasharray="4 2"/>
+      <text x={100} y={56} fontSize="7" fill={GD} fontWeight="700">Flag</text>
+      <text x={186} y={14} fontSize="7" fill={GR}>Continues up</text>
+    </ChartFrame>
+  );
+}
+
+/* ── Bear Flag ── */
+function BearFlagChart() {
+  const candles = [
+    {cx:14, wt:8,  bt:12, bb:20, wb:24, bull:false},
+    {cx:30, wt:26, bt:32, bb:42, wb:48, bull:false},  // pole - sharp move down
+    {cx:46, wt:52, bt:58, bb:68, wb:74, bull:false},
+    {cx:62, wt:78, bt:84, bb:94, wb:100, bull:false},
+    {cx:78, wt:96, bt:102,bb:112,wb:118, bull:false}, // bottom of pole
+    {cx:94, wt:88, bt:94, bb:104,wb:110, bull:true},  // flag - mild pullback channel
+    {cx:110,wt:82, bt:88, bb:98, wb:104, bull:true},
+    {cx:126,wt:76, bt:82, bb:92, wb:98, bull:false},
+    {cx:142,wt:80, bt:86, bb:96, wb:102, bull:true},
+    {cx:158,wt:74, bt:80, bb:90, wb:96, bull:false},
+    {cx:174,wt:84, bt:90, bb:100,wb:106, bull:false}, // breaks down out of flag
+    {cx:190,wt:100,bt:106,bb:116,wb:122, bull:false},
+    {cx:206,wt:108,bt:114,bb:124,wb:128, bull:false},
+  ];
+  return (
+    <ChartFrame width={250} height={140} label="Bear Flag — sharp drop, brief pause, then continues down">
+      {candles.map((c,i)=>(<Candle key={i} cx={c.cx} wickTop={c.wt} bodyTop={c.bt} bodyBot={c.bb} wickBot={c.wb} bullish={c.bull} w={8}/>))}
+      {/* Overlay: pole line + flag channel */}
+      <line x1={14} y1={16} x2={78} y2={114} stroke={GD} strokeWidth="2.5"/>
+      <text x={36} y={60} fontSize="7" fill={GD} fontWeight="700" transform="rotate(70,36,60)">Pole</text>
+      <line x1={86} y1={90} x2={182} y2={70} stroke={GD} strokeWidth="2" strokeDasharray="4 2"/>
+      <line x1={86} y1={104} x2={182} y2={84} stroke={GD} strokeWidth="2" strokeDasharray="4 2"/>
+      <text x={100} y={66} fontSize="7" fill={GD} fontWeight="700">Flag</text>
+      <text x={186} y={128} fontSize="7" fill={RD}>Continues down</text>
+    </ChartFrame>
   );
 }
 
@@ -897,6 +1644,53 @@ function FlagRow({ green, red }) {
   );
 }
 
+function WhatToLookFor({ bullish, bearish, other, items }) {
+  // Two modes: directional (bullish/bearish, with optional "other") or plain bullet list (items only).
+  return (
+    <div style={{marginTop:"12px"}}>
+      <SectionLabel label="What to Look For" />
+      {(bullish || bearish) && (
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom: other ? "8px" : "0"}}>
+          {bullish && (
+            <div style={{background:"#f0faf5",border:"1px solid #a7f3d044",borderRadius:"8px",padding:"10px 12px"}}>
+              <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+                color:GR,marginBottom:"6px"}}>📈 Bullish</div>
+              {bullish.map((b,i)=>(
+                <div key={i} style={{fontSize:"0.75rem",color:"#1a4a30",lineHeight:"1.55",marginBottom:"4px"}}>• {b}</div>
+              ))}
+            </div>
+          )}
+          {bearish && (
+            <div style={{background:"#fff5f5",border:"1px solid #fca5a544",borderRadius:"8px",padding:"10px 12px"}}>
+              <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+                color:RD,marginBottom:"6px"}}>📉 Bearish</div>
+              {bearish.map((b,i)=>(
+                <div key={i} style={{fontSize:"0.75rem",color:"#4a1a1a",lineHeight:"1.55",marginBottom:"4px"}}>• {b}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {other && (
+        <div style={{background:"#fef9f0",border:`1px solid ${GD}44`,borderRadius:"8px",padding:"10px 12px"}}>
+          <div style={{fontSize:"0.62rem",fontWeight:"700",letterSpacing:"0.1em",textTransform:"uppercase",
+            color:GD,marginBottom:"6px"}}>◆ Other Considerations</div>
+          {other.map((o,i)=>(
+            <div key={i} style={{fontSize:"0.75rem",color:"#5a4535",lineHeight:"1.55",marginBottom:"4px"}}>• {o}</div>
+          ))}
+        </div>
+      )}
+      {items && (
+        <div style={{background:"#fef9f0",border:`1px solid ${GD}44`,borderRadius:"8px",padding:"10px 12px"}}>
+          {items.map((it,i)=>(
+            <div key={i} style={{fontSize:"0.75rem",color:"#5a4535",lineHeight:"1.55",marginBottom:"4px"}}>• {it}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════
    TAB 1 — CHART BASICS
 ══════════════════════════════════════════ */
@@ -1013,7 +1807,9 @@ function TabChartBasics({ onNext }) {
             </div>
           </div>
         ))}
-        <RuleBox rule="Always use candlestick charts for trade analysis. They give you open, high, low, and close in one glance — more information than any other chart type." />
+        <InfoBox accent={RD}>
+          <strong>Only read closed candles:</strong> A candle isn't final until its time period ends. While it's still forming, it can flip — one that's been green can turn red as sellers step in, and the reverse is just as true. Reading a candle that's still in progress is reading a sentence before it's finished. Wait for the close before drawing any conclusion from it.
+        </InfoBox>
       </ExpandableCard>
 
       <ExpandableCard title="Candlestick Patterns" accent={OR}>
@@ -1029,7 +1825,8 @@ function TabChartBasics({ onNext }) {
           </svg>
           <div>
             <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Doji</div>
-            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Open and close are nearly equal, leaving almost no body — just a thin line with wicks on both sides. Signals indecision: neither buyers nor sellers won that period.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55",marginBottom:"5px"}}>Open and close are nearly equal, leaving almost no body — just a thin line with wicks on both sides.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}><strong style={{color:DK}}>What it means:</strong> Indecision. Neither buyers nor sellers won that period. On its own it doesn't favor either direction — what matters is where it shows up and what happens next.</div>
           </div>
         </div>
 
@@ -1042,7 +1839,8 @@ function TabChartBasics({ onNext }) {
           </svg>
           <div>
             <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Hammer</div>
-            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Small body near the top, long lower wick. Price dropped sharply during the period but buyers stepped in and pushed it back up. Often appears at the bottom of a move, near support.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55",marginBottom:"5px"}}>Small body near the top, long lower wick. Price dropped sharply during the period but buyers stepped in and pushed it back up.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}><strong style={{color:DK}}>What it means:</strong> A potential bullish reversal signal. It shows buyers rejecting lower prices, which carries the most weight after a downtrend or at a support level.</div>
           </div>
         </div>
 
@@ -1055,12 +1853,13 @@ function TabChartBasics({ onNext }) {
           </svg>
           <div>
             <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Shooting Star</div>
-            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Small body near the bottom, long upper wick. Price spiked up during the period but sellers pushed it back down. Often appears at the top of a move, near resistance.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55",marginBottom:"5px"}}>Small body near the bottom, long upper wick. Price spiked up during the period but sellers pushed it back down.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}><strong style={{color:DK}}>What it means:</strong> A potential bearish reversal signal. It shows sellers rejecting higher prices, which carries the most weight after an uptrend or at a resistance level.</div>
           </div>
         </div>
 
         {/* Spinning Top */}
-        <div style={{display:"flex",gap:"16px",alignItems:"center",background:"#f5f0ff",borderRadius:"9px",padding:"12px",marginBottom:"6px"}}>
+        <div style={{display:"flex",gap:"16px",alignItems:"center",background:"#f5f0ff",borderRadius:"9px",padding:"12px",marginBottom:"10px"}}>
           <svg width="60" height="80" viewBox="0 0 60 80" style={{flexShrink:0}}>
             <line x1="30" y1="6" x2="30" y2="32" stroke={PU} strokeWidth="2.5"/>
             <rect x="20" y="32" width="20" height="16" rx="2" fill="#f0ebfa" stroke={PU} strokeWidth="2"/>
@@ -1068,11 +1867,23 @@ function TabChartBasics({ onNext }) {
           </svg>
           <div>
             <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Spinning Top</div>
-            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}>Small body with wicks of similar length on both sides. Like a doji, it signals indecision — but with more total movement during the period, just no clear winner.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55",marginBottom:"5px"}}>Small body with wicks of similar length on both sides — more total movement during the period than a doji, just no clear winner.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}><strong style={{color:DK}}>What it means:</strong> Indecision, like a doji. Buyers and sellers both pushed hard, but neither one controlled the close. Worth watching what the next candle does.</div>
           </div>
         </div>
 
-        <RuleBox rule="A single pattern is a clue, not a signal on its own. Always check where it shows up — the same shape means more at a key level than it does in the middle of nowhere." />
+        {/* Marubozu */}
+        <div style={{display:"flex",gap:"16px",alignItems:"center",background:"#eef6fb",borderRadius:"9px",padding:"12px",marginBottom:"6px"}}>
+          <svg width="60" height="80" viewBox="0 0 60 80" style={{flexShrink:0}}>
+            <rect x="20" y="6" width="20" height="68" rx="2" fill="#e6f2fa" stroke={BL} strokeWidth="2.5"/>
+          </svg>
+          <div>
+            <div style={{fontWeight:"700",fontSize:"0.82rem",color:DK,marginBottom:"3px"}}>Marubozu</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55",marginBottom:"5px"}}>A candle with almost no wicks — the body spans nearly the entire high-to-low range. A bullish Marubozu opens at the low and closes at the high. A bearish Marubozu opens at the high and closes at the low.</div>
+            <div style={{fontSize:"0.76rem",color:"#5a4535",lineHeight:"1.55"}}><strong style={{color:DK}}>What it means:</strong> The opposite of indecision. One side was in complete control for the entire period with no real pushback — strong buying conviction on a bullish Marubozu, strong selling conviction on a bearish one.</div>
+          </div>
+        </div>
+
       </ExpandableCard>
 
       <ExpandableCard title="Chart Types" accent={BL}>
@@ -1167,16 +1978,15 @@ function TabKeyLevels({ onNext }) {
           <strong>What it is:</strong> A price zone where buying pressure has historically stopped a stock from falling further — a floor.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
-          <strong>Why it matters:</strong> If a stock approaches strong support, it may bounce — a potential entry for a call contract.
+          <strong>Why it matters:</strong> If a stock approaches strong support, it may bounce, favoring a call. If it breaks down through support instead, that favors a put. The level itself is what to watch — which direction it resolves determines the trade.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
           <strong>How to spot it:</strong> Look for at least two separate touches where price dropped to roughly the same area and turned back up. The more times it holds, the more traders are watching it, which makes the bounce more reliable.
         </div>
         <SupportChart />
-        <RuleBox rule="Mark support levels before looking for entry signals. Price approaching support is not a trade — it's a zone to watch." />
-        <FlagRow
-          green={["Level tested 2+ times and held","Volume drops as price nears support","Bullish candle pattern forms at the level"]}
-          red={["Prior breakdown through this level on high volume","Multiple failed bounces recently","Strong downtrend still in place"]}
+        <WhatToLookFor
+          bullish={["Level tested 2+ times and held","Volume drops as price nears support","Bullish candle pattern forms at the level"]}
+          bearish={["Prior breakdown through this level on high volume","Multiple failed bounces recently","Strong downtrend still in place"]}
         />
       </ExpandableCard>
 
@@ -1185,16 +1995,15 @@ function TabKeyLevels({ onNext }) {
           <strong>What it is:</strong> A price zone where selling pressure has repeatedly stopped a stock from moving higher — a ceiling.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
-          <strong>Why it matters:</strong> Stocks pressing against resistance may stall or reverse. This is where calls lose steam and puts gain it.
+          <strong>Why it matters:</strong> Stocks pressing against resistance may stall or reverse, favoring a put. If price breaks through instead, that favors a call. The level itself is what to watch — which direction it resolves determines the trade.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
           <strong>How to spot it:</strong> Look for at least two separate touches where price rose to roughly the same area and turned back down. Each rejection adds weight to the level — the third or fourth test is often the one that finally breaks it.
         </div>
         <ResistanceChart />
-        <RuleBox rule="Never enter a call trade when price is already pressing against major resistance. Wait for a confirmed breakout above it first." />
-        <FlagRow
-          green={["Level is well-defined with 2+ touches","Price is consolidating well below resistance","Volume is low near the resistance zone"]}
-          red={["Price is already at or above resistance","Bearish candle patterns forming at the level","Resistance tested 4+ times without a break"]}
+        <WhatToLookFor
+          bearish={["Level is well-defined with 2+ touches","Price is consolidating well below resistance","Volume is low near the resistance zone"]}
+          bullish={["Price is already at or above resistance","Bullish candle patterns forming at the level","Resistance tested 4+ times without a break"]}
         />
       </ExpandableCard>
 
@@ -1212,7 +2021,6 @@ function TabKeyLevels({ onNext }) {
         <InfoBox accent={OR}>
           <strong>Consolidation:</strong> Notice the tighter candles sitting just below resistance before the breakout. That narrow, sideways squeeze is consolidation — price coiling in a small range as buyers and sellers fight it out near the level. A breakout that comes after real consolidation tends to be more reliable than one that comes out of nowhere, since it shows pressure building before the move.
         </InfoBox>
-        <RuleBox rule="Wait for the candle to close above resistance — not just wick above it. A full candle close above the level on high volume is the confirmation." />
         <FlagRow
           green={["Candle closes above resistance on high volume","Volume is 1.5× the 20-day average or more","Price retests old resistance as new support"]}
           red={["Wick above resistance but close below (false breakout)","Low volume on the breakout candle","Broad market selling off on the same day"]}
@@ -1233,7 +2041,6 @@ function TabKeyLevels({ onNext }) {
         <InfoBox accent={PU}>
           <strong>Consolidation:</strong> The same tight, sideways squeeze that precedes a breakout can also precede a breakdown. When candles narrow just above support, it's a sign of pressure building near the level — keep an eye on which direction it eventually resolves.
         </InfoBox>
-        <RuleBox rule="If your stock breaks down below a key support level on high volume, exit first and ask questions later. Do not hold and hope." />
         <FlagRow
           green={["Candle closes below support on high volume","Old support now acting as resistance","Multiple failed attempts to reclaim support"]}
           red={["Price dipped below but quickly recovered","Low volume on the breakdown candle","Broader market rallying on the same day"]}
@@ -1251,12 +2058,18 @@ function TabKeyLevels({ onNext }) {
           <strong>How to spot it:</strong> Connect at least two or three swing lows (in an uptrend) or swing highs (in a downtrend) with a straight line. A trend line only becomes meaningful once price has touched and respected it more than once — a single connection is just a guess.
         </div>
         <TrendLineChart />
-        <RuleBox rule="Identify the trend direction before looking for an entry. Trading against the trend is possible — but it's swimming upstream." />
-        <FlagRow
-          green={["Higher highs and higher lows in sequence","Trend line tested and held 2+ times","Volume increasing in the trend direction"]}
-          red={["Trend line has been broken","Price is choppy with no clear direction","Multiple failed attempts to resume the trend"]}
+        <WhatToLookFor
+          bullish={["Higher highs and higher lows in sequence","An ascending trend line tested and held 2+ times","Volume increasing as price climbs"]}
+          bearish={["Lower highs and lower lows in sequence","A descending trend line tested and held 2+ times","Volume increasing as price falls"]}
+          other={["The trend line breaking, in either direction, signals the trend may be ending","Choppy price with no clear sequence of highs or lows means there's no real trend line to draw yet"]}
         />
       </ExpandableCard>
+
+      <SectionLabel label="The Flip" sub="A broken level often swaps roles" />
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"4px"}}>
+        Break a ceiling and it often becomes the new floor. Lose a floor and it often becomes the new ceiling. The level doesn't disappear once it breaks — the traders who were watching it are still watching it, just from the other side. Everyone who bought right at the breakout doesn't want to be underwater, so they tend to buy again if price comes back down to retest that same level. Watch for that retest after a break — it's often the cleanest confirmation that the level has actually flipped.
+      </div>
+      <FlipChart />
 
       <SectionLabel label="Trending vs. Ranging Markets" sub="The condition behind every level" />
       <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"4px"}}>
@@ -1295,11 +2108,12 @@ function TabIndicators({ onNext }) {
           <strong>How it moves:</strong> Volume bars rise and fall with each candle. A normal day might show volume near its 20-day average. Spikes happen on news, earnings, or when a key level breaks. Low volume on a big price move often means low conviction behind it.
         </div>
         <VolumeChart />
-        <RuleBox rule="Check volume on every signal candle. Breakout candles should have volume at or above the 20-bar average. Low volume signals are unconfirmed signals." />
-        <FlagRow
-          green={["Breakout candle has 1.5× average volume or more","Volume increasing steadily in the trend direction","Volume spike on a support bounce"]}
-          red={["Breakout on below-average volume","Volume declining as price rises (divergence)","Volume spike against the trend direction"]}
-        />
+        <WhatToLookFor items={[
+          "Breakout or breakdown candle has 1.5× average volume or more — the move has real participation behind it",
+          "Volume increasing steadily in whichever direction price is moving — confirms the move",
+          "Volume declining while price keeps extending — a warning sign regardless of direction, since the move may be running out of real conviction",
+          "A breakout or breakdown on below-average volume — worth treating with caution either way",
+        ]} />
       </ExpandableCard>
 
       <ExpandableCard title="RSI — Relative Strength Index" accent={OR}>
@@ -1315,10 +2129,10 @@ function TabIndicators({ onNext }) {
         <RSIChart />
         <div style={{background:"#f7f0e6",borderRadius:"9px",padding:"11px 13px",marginBottom:"10px"}}>
           {[
-            {range:"70–100",label:"Overbought",color:RD,  desc:"May be due for a pullback. Avoid new call entries."},
-            {range:"50–70", label:"Bullish momentum",color:OR,  desc:"Trending up with strength. Favorable for call setups."},
-            {range:"30–50", label:"Bearish momentum",color:GD,  desc:"Losing momentum. Watch for reversal before entering."},
-            {range:"0–30",  label:"Oversold",color:GR,  desc:"May be due for a bounce. Watch for call opportunities."},
+            {range:"70–100",label:"Overbought",color:RD,  desc:"Stock has moved up fast and may be due for a pullback. Worth watching for call exits or put entries."},
+            {range:"50–70", label:"Bullish momentum",color:OR,  desc:"Trending up with strength. Favorable territory for call setups."},
+            {range:"30–50", label:"Bearish momentum",color:GD,  desc:"Trending down with strength. Favorable territory for put setups."},
+            {range:"0–30",  label:"Oversold",color:GR,  desc:"Stock has moved down fast and may be due for a bounce. Worth watching for put exits or call entries."},
           ].map((row,i)=>(
             <div key={i} style={{display:"flex",gap:"10px",alignItems:"flex-start",marginBottom:"7px"}}>
               <div style={{background:row.color,color:"#fff",borderRadius:"5px",padding:"2px 7px",
@@ -1330,10 +2144,10 @@ function TabIndicators({ onNext }) {
             </div>
           ))}
         </div>
-        <RuleBox rule="[Placeholder — Dominique's RSI thresholds to be confirmed.] Example: Avoid entering calls when RSI is above 70. Look for RSI turning upward from below 50 as a bullish confirmation signal." />
-        <FlagRow
-          green={["RSI rising from oversold (below 30)","RSI crossing above 50 after a pullback","RSI confirming price breakout (both moving up)"]}
-          red={["RSI above 70 — stock may be overextended","Price making new highs but RSI falling (divergence)","RSI dropping below 50 in an uptrending stock"]}
+        <WhatToLookFor
+          bullish={["RSI rising from oversold (below 30)","RSI crossing above 50 after a pullback","RSI confirming a price breakout (both moving up)"]}
+          bearish={["RSI falling from overbought (above 70)","RSI crossing below 50 after a bounce","RSI confirming a price breakdown (both moving down)"]}
+          other={["Price making new highs while RSI fails to make new highs (or the reverse) — a divergence worth noting regardless of direction"]}
         />
       </ExpandableCard>
 
@@ -1348,10 +2162,9 @@ function TabIndicators({ onNext }) {
           <strong>How it moves:</strong> A 50 MA reacts faster to recent price than a 200 MA, which shifts only slowly over time. When price stays above a moving average for a sustained stretch, that average tends to flatten out and rise, confirming the trend.
         </div>
         <MAChart />
-        <RuleBox rule="[Placeholder — to be confirmed.] Example: Prefer call setups where price is above both the 50 MA and 200 MA. A 50 MA crossover above the 200 MA (Golden Cross) signals a strong uptrend." />
-        <FlagRow
-          green={["Price trading above both 50 MA and 200 MA","50 MA recently crossed above 200 MA (Golden Cross)","Price pulling back to 50 MA and bouncing"]}
-          red={["Price trading below the 200 MA","50 MA crossed below 200 MA (Death Cross)","Price failed to reclaim 50 MA after a breakdown"]}
+        <WhatToLookFor
+          bullish={["Price trading above both 50 MA and 200 MA","50 MA recently crossed above 200 MA (Golden Cross)","Price pulling back to 50 MA and bouncing"]}
+          bearish={["Price trading below both 50 MA and 200 MA","50 MA crossed below 200 MA (Death Cross)","Price failed to reclaim 50 MA after a breakdown"]}
         />
       </ExpandableCard>
 
@@ -1360,18 +2173,78 @@ function TabIndicators({ onNext }) {
           <strong>What it is:</strong> Moving Average Convergence Divergence. A momentum indicator showing the relationship between two moving averages. Displayed below the chart as two lines and a histogram.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
-          <strong>Why it matters:</strong> MACD signals when momentum is building or fading. A bullish crossover — the fast line crossing above the slow line — is a common confirmation for entries.
+          <strong>Why it matters:</strong> MACD signals when momentum is building or fading. A crossover — the fast line crossing the slow line — is a common confirmation either direction, depending on which way it crosses.
         </div>
         <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
           <strong>How it moves:</strong> The MACD line reacts faster to price than the signal line. When the two lines are far apart, momentum is strong. When they converge or cross, momentum is shifting — that crossover is the moment most traders watch for.
         </div>
         <MACDChart />
-        <RuleBox rule="[Placeholder — to be confirmed.] Example: Use MACD as a confirming indicator only. Look for a bullish crossover to confirm a call entry you've already identified on price action." />
-        <FlagRow
-          green={["MACD line crossed above signal line","Histogram bars turning green and growing","Crossover happening above the zero line"]}
-          red={["MACD line crossed below signal line","Histogram bars shrinking after a long run","Price up but MACD falling (divergence)"]}
+        <WhatToLookFor
+          bullish={["MACD line crossed above signal line","Histogram bars turning positive and growing","Crossover happening above the zero line"]}
+          bearish={["MACD line crossed below signal line","Histogram bars turning negative and growing","Crossover happening below the zero line"]}
+          other={["Price making new highs (or lows) while MACD doesn't confirm — a divergence worth noting regardless of direction"]}
         />
       </ExpandableCard>
+
+      <ExpandableCard title="VWAP — Volume Weighted Average Price" accent={GD}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A line plotted directly on the price chart, showing the average price a stock has traded at so far, weighted by volume. It resets at the start of each session and builds throughout the day.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> VWAP acts as a reference point many traders watch closely. Price trading above VWAP is generally viewed as bullish for the session, below as bearish. It also acts as a dynamic support or resistance line.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How it moves:</strong> VWAP is less reactive than a short moving average since it factors in every trade's volume from the start of the session. It tends to smooth out and drift gradually rather than swinging sharply.
+        </div>
+        <InfoBox accent={GD}>
+          <strong>What you'll see:</strong> Adding VWAP on most platforms shows three lines, not one — the VWAP line itself, plus an upper and lower band. The bands are optional and can be turned off; whether Dominique uses them is still being confirmed.
+        </InfoBox>
+        <InfoBox accent={GD}>
+          <strong>What the bands mean:</strong> They sit a certain distance above and below VWAP, based on standard deviation — how spread out price has been from VWAP so far. The wider that spread, the further apart the bands sit. Price near the upper band is trading rich relative to the session's average; price near the lower band is trading cheap relative to it.
+        </InfoBox>
+        <InfoBox accent={GD}>
+          Because VWAP is a cumulative average — recalculated using every trade from the start of the session onward — the bands tend to start tight, widen through the middle of the day, and tighten again near the close. Early on there isn't much data yet, so there's little deviation to measure. As the session builds, more price swings get factored in and the bands widen. Near the close, VWAP has absorbed a full day of trades and becomes harder for any single new one to shift, so the spread around it often shrinks back down too — tight again, the same way it started.
+        </InfoBox>
+        <VWAPChart />
+        <WhatToLookFor
+          bullish={["Price holding above VWAP on a pullback","Price bouncing off VWAP with rising volume","VWAP sloping upward alongside price"]}
+          bearish={["Price failing to reclaim VWAP on a bounce attempt","Price rejecting off VWAP with rising volume","VWAP sloping downward alongside price"]}
+          other={["Bands are tight near the open and close, and wider mid-session — this reflects how much data has accumulated, not a directional signal"]}
+        />
+      </ExpandableCard>
+
+      <ExpandableCard title="Buy/Sell Volume" accent={BL}>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>What it is:</strong> A breakdown of the regular volume bar into two parts — how much of that volume was buyer-driven versus seller-driven. Shown as a stacked bar, with buy volume on the bottom and sell volume on top.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"6px"}}>
+          <strong>Why it matters:</strong> Plain volume only tells you how much happened. Buy/sell volume tells you who was more aggressive, which helps explain why some candles barely move despite heavy trading.
+        </div>
+        <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"8px"}}>
+          <strong>How it moves:</strong> The buy and sell portions shift bar to bar based on order flow. A widening gap between the two in one direction signals growing conviction; a narrowing gap signals indecision, regardless of which way the candle itself closed.
+        </div>
+        <InfoBox accent={BL}>
+          <strong>Why a small candle can have huge volume:</strong> Volume counts shares traded — it doesn't track how far price moved. If buy volume and sell volume are close to even, the two sides are canceling each other out, so price barely moves even though a large number of shares changed hands. Check the split whenever a candle's size doesn't seem to match its volume bar — the split usually explains it.
+        </InfoBox>
+        <EvenSplitVolumeChart />
+        <WhatToLookFor items={[
+          "A clear gap between buy and sell volume, in either direction — shows real conviction behind the move",
+          "Buy and sell volume close to even despite a large total volume bar — explains why the candle barely moved",
+          "The gap between buy and sell widening as price extends — supports the move continuing",
+          "The gap between buy and sell narrowing as price tries to move — a sign of fading conviction, regardless of direction",
+        ]} />
+      </ExpandableCard>
+
+      <SectionLabel label="Volume vs. Price Movement" sub="Why they don't always match" />
+      <div style={{fontSize:"0.84rem",color:"#5a4535",lineHeight:"1.7",marginBottom:"4px"}}>
+        It's possible to see a small candle with unusually high volume, and a large candle with unusually low volume. That isn't a contradiction — volume and price movement are answering two different questions. Volume counts how many shares traded. The candle's size shows how far the price actually moved, net, by the end of the period. A lot of trading can happen without price going anywhere, if buyers and sellers are evenly matched. And price can move a long way on relatively little volume, if there's barely anyone trading and most of them are on the same side.
+      </div>
+      <InfoBox accent={GD}>
+        <strong>The buy/sell split explains it:</strong> When volume is high but the candle barely moved, the buy and sell volume are usually close to even — neither side won by much. When volume is low but the candle moved a lot, the split is usually lopsided — most of the few people trading were on the same side, so price moved with little resistance.
+      </InfoBox>
+      <InfoBox accent={RD}>
+        A large candle on surprisingly low volume is worth treating with some caution. It suggests the move might not be backed by much real participation, and could reverse quickly once normal volume returns.
+      </InfoBox>
 
       <NextBtn label="Confluence" onClick={onNext} />
     </div>
@@ -1393,11 +2266,13 @@ function TabConfluence() {
 
       <SectionLabel label="Examples" sub="Tap each to expand" />
       <div style={{fontSize:"0.8rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
-        For these examples, we use price at a support level, volume, and RSI as our three signals. These aren't the only signals you can use to check for confluence — they're simply the ones used to illustrate the idea here. In each scenario below, we're looking at whether these three clues agree before deciding what a trade would look like.
+        The examples below pull from different tools covered earlier in this module — key levels, indicators, moving averages, and timeframes. Confluence isn't tied to any fixed checklist of signals; it's the general principle of checking whether multiple things agree, whichever tools happen to be relevant to what you're looking at.
       </div>
 
-      <ExpandableCard title="Example 1: No Confluence" accent={RD}>
-        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>One signal, acting in isolation</div>
+      <ExpandableCard title="Example 1: Recognizing Confluence" accent={RD}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"10px"}}>Same setup, three versions — no confluence, full confluence, partial confluence</div>
+
+        <div style={{fontSize:"0.78rem",fontWeight:"700",color:RD,marginBottom:"4px"}}>No Confluence</div>
         <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
           Price touches support — that's the only thing lining up. Volume stays flat and RSI is still in overbought territory from the prior move. A beginner sees the bounce and jumps in. A professional sees one signal with nothing backing it up.
         </div>
@@ -1405,10 +2280,8 @@ function TabConfluence() {
         <InfoBox accent={RD}>
           This is exactly the setup that catches beginners. The chart "looks" like a bounce, but nothing else in the picture supports it. Acting here is a guess dressed up as a trade.
         </InfoBox>
-      </ExpandableCard>
 
-      <ExpandableCard title="Example 2: Confluence" accent={GR}>
-        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Multiple signals, all agreeing</div>
+        <div style={{fontSize:"0.78rem",fontWeight:"700",color:GR,marginBottom:"4px",marginTop:"14px"}}>Full Confluence</div>
         <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
           Same support level, same bounce — but now volume rises on the bounce candle, and RSI is turning up from oversold instead of sitting in overbought. Three independent signals, all telling the same story.
         </div>
@@ -1416,10 +2289,8 @@ function TabConfluence() {
         <InfoBox accent={GR}>
           This is what a professional is looking for before they even start thinking about an entry. Price, volume, and momentum are all in agreement — the case is stronger because no single signal is doing all the work.
         </InfoBox>
-      </ExpandableCard>
 
-      <ExpandableCard title="Example 3: Partial Confluence" accent={GD}>
-        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Some signals agree, one doesn't</div>
+        <div style={{fontSize:"0.78rem",fontWeight:"700",color:GD,marginBottom:"4px",marginTop:"14px"}}>Partial Confluence</div>
         <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
           Confluence isn't all-or-nothing. Here, price and RSI agree — the bounce lines up with RSI turning up from oversold — but volume stays flat with no real confirmation. This is a stronger picture than total isolation, but weaker than full agreement.
         </div>
@@ -1429,7 +2300,40 @@ function TabConfluence() {
         </InfoBox>
       </ExpandableCard>
 
-      <ExpandableCard title="Example 4: Confluence Across Timeframes" accent={BL}>
+      <ExpandableCard title="Example 2: Resistance + MACD + Trend" accent={RD}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>A bearish setup, confirmed three different ways</div>
+        <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+          Price tests resistance and gets rejected. At the same time, MACD crosses bearish, and the broader trend was already pointing down before any of this happened. Three different tools — a key level, an indicator, and the overall trend — all pointing the same direction.
+        </div>
+        <ResistanceMACDTrendChart />
+        <InfoBox accent={RD}>
+          Confluence doesn't only show up on bullish setups. A bearish case can be just as well-supported — here it would favor a put over a call, for the same reasons a bullish version would favor a call.
+        </InfoBox>
+      </ExpandableCard>
+
+      <ExpandableCard title="Example 3: Breakout + Volume + Moving Average" accent={OR}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>A key level, a volume spike, and a trend tool, all agreeing</div>
+        <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+          Price breaks above resistance on a volume spike, and clears the 50 MA at the same time. The breakout alone is a signal. The volume confirms real participation behind it. The moving average confirms the broader trend is shifting too — not just one candle poking through a line.
+        </div>
+        <BreakoutVolumeMAChart />
+        <InfoBox accent={OR}>
+          Notice this example doesn't use RSI at all. Confluence is about checking whatever tools are relevant to the setup in front of you, not running through a fixed list every time.
+        </InfoBox>
+      </ExpandableCard>
+
+      <ExpandableCard title="Example 4: Moving Average + MACD" accent={GR}>
+        <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Two indicators confirming each other, with no key level involved</div>
+        <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
+          Price pulls back to the 50 MA and bounces off it, while MACD crosses bullish on that same candle. Neither signal needs a support or resistance line to be meaningful — two indicators agreeing with each other is its own form of confluence.
+        </div>
+        <MAMACDChart />
+        <InfoBox accent={GR}>
+          Confluence can come from a level and an indicator agreeing, like the earlier examples, or from two indicators agreeing with each other directly. Both count — what matters is that more than one independent signal is telling the same story.
+        </InfoBox>
+      </ExpandableCard>
+
+      <ExpandableCard title="Example 5: Confluence Across Timeframes" accent={BL}>
         <div style={{fontSize:"0.74rem",color:"#8a7560",marginBottom:"6px"}}>Signals can agree or disagree across more than one timeframe</div>
         <div style={{fontSize:"0.82rem",color:"#5a4535",lineHeight:"1.65",marginBottom:"4px"}}>
           Confluence doesn't only mean checking different signals on a single chart. The same signal can also be checked across different timeframes. If a higher timeframe shows price bouncing off support, and a shorter timeframe you're using for timing shows that same bounce, that's confluence working across timeframes rather than just across indicators.
